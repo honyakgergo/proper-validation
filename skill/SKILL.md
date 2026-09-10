@@ -18,6 +18,29 @@ tool exists to remove.
 
 ## The protocol
 
+### 0. Check the tool is actually there
+
+```bash
+qv --help
+```
+
+Do this first, before reading anything of the researcher's. You are almost certainly running in
+*their* project, while `qv` was installed from a clone of this repository somewhere else — and if
+that install went into a virtualenv inside the clone, the command does not exist here.
+
+If it is not found, **stop and say so**. Do not work around it: not by reading `qv/` and computing
+the statistics yourself, not by `pip install`-ing this package into the researcher's environment
+(it pins numpy, pandas, scipy and statsmodels, and disturbing the environment their research runs
+in is its own kind of damage). Give them the fix and wait:
+
+```bash
+pipx install --editable "/path/to/proper-validation[data]"    # or: uv tool install --editable ...
+```
+
+That puts `qv` on PATH for every project without touching theirs. `qv skill install --user` then
+keeps the skill available everywhere too. The `[data]` extra matters: without it the manifest
+`qv adapter init` writes cannot fetch prices.
+
 ### 1. Establish the tier
 
 What the audit can conclude depends strictly on what exists. Find out before promising anything.

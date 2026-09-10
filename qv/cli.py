@@ -64,6 +64,58 @@ def _repo_root() -> Path | None:
     root = Path(__file__).resolve().parent.parent
     return root if (root / "skill").is_dir() or (root / "benchmarks").is_dir() else None
 
+def qv_is_reachable_anywhere() -> tuple[bool, str | None]:
+    """Will `qv` resolve from a directory other than this one?
+
+    This is the joint the whole agent layer hangs on, and the documented setup
+    used to break it. The skill installs into `~/.claude/skills`, so it loads
+    in *every* project; but the README told people to make a virtualenv inside
+    the clone, which puts the console script on `PATH` only while that
+    environment is active. A researcher then opens Claude Code on their own
+    notebook, in their own directory, the skill activates, the agent runs
+    `qv validate`, and gets `command not found` - at which point the one thing
+    the skill forbids, improvising the statistics, is the only route left.
+
+    Returns whether the command is reachable and, if not, why - so
+    `skill install` can say it at the moment it matters rather than leaving it
+    to be discovered in someone else's session.
+    """
+    import shutil
+
+    found = shutil.which("qv")
+    if found is None:
+        return False, (
+            "`qv` is not on PATH, so it will not resolve in any other directory."
+        )
+    in_venv = sys.prefix != sys.base_prefix
+    if in_venv and Path(found).resolve().is_relative_to(Path(sys.prefix).resolve()):
+        return False, (
+            f"`qv` resolves to {found}, inside the virtualenv at {sys.prefix}. "
+            "That is on PATH only while this environment is active, so it will "
+            "not resolve in the project you actually want to audit."
+        )
+    return True, None
+
+
+def _reachability_remedy(root: Path | None) -> str:
+    """How to get an isolated `qv` onto PATH without a package index.
+
+    Deliberately not `pip install` into the researcher's own environment: this
+    package pins numpy, pandas, scipy and statsmodels, and the whole point is
+    to audit somebody's research without disturbing the environment that
+    research runs in.
+    """
+    where = root if root is not None else Path("/path/to/proper-validation")
+    return (
+        "To make it reachable from any project, install it as an isolated tool:\n"
+        f'    pipx install --editable "{where}[data]"\n'
+        f'    uv tool install --editable "{where}[data]"    # or, if you use uv\n'
+        "Both put `qv` on PATH without touching the environment your own "
+        "research runs in. The [data] extra is what lets the manifest "
+        "`qv adapter init` writes fetch prices."
+    )
+
+
 def _echo_err(message: str) -> None:
     typer.echo(message, err=True)
 
@@ -664,6 +716,13 @@ def skill_install(
         "\nStart a new Claude Code session in this directory and ask it to audit "
         "a backtest.\nThe skill activates on its own; there is nothing to enable."
     )
+
+    # The skill is useless without the command it drives, and the failure shows
+    # up in a different directory from the one this ran in. Say it here.
+    reachable, why = qv_is_reachable_anywhere()
+    if not reachable:
+        _echo_err(f"\nWarning: {why}")
+        _echo_err(_reachability_remedy(root))
 
 
 def main() -> int:  # pragma: no cover - console entry point

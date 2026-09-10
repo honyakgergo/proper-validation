@@ -68,38 +68,51 @@ the return series betrays it.
 
 ## Setup
 
-Python 3.11 or 3.12.
+Python 3.11 or 3.12. There is no PyPI package — this is a repository you clone and a
+[Claude Code](https://claude.com/claude-code) skill you install from it.
+
+**To audit your own research**, which is what almost everyone wants. Your backtest lives in some
+other directory, so `qv` has to work from *there*:
 
 ```bash
 git clone https://github.com/honyakgergo/proper-validation.git
-cd proper-validation
+pipx install --editable "proper-validation[data]"     # or: uv tool install --editable ...
+qv skill install --user                               # the skill, for every project
 
+cd ~/my-strategy                                      # your research, wherever it lives
+qv --help                                             # must work here, not just in the clone
+```
+
+`pipx` and `uv` install into an isolated environment and put `qv` on your PATH, so the audit runs
+anywhere without adding numpy, pandas, scipy and statsmodels pins to the environment your own
+research runs in. **Do not use a virtualenv inside the clone for this** — the command would then
+exist only while that environment is active, and the whole point is to run it somewhere else.
+
+Take the `[data]` extra here even though the engine never needs the network: `qv adapter init`
+scaffolds a manifest that fetches prices with `yfinance`, so without it the first file the agent
+generates cannot run.
+
+Then open Claude Code in your project and ask it to audit your backtest. The skill activates on its
+own and carries the audit protocol, the adapter contract, the manifest schema and the findings
+catalog, so the agent reads your notebook, lifts the strategy into an adapter, fills in the
+manifest, runs deterministic CLI commands and interprets the findings — rather than improvising
+statistics.
+
+**To work on the tool itself**, a virtualenv in the clone is right, because you want the tests:
+
+```bash
+cd proper-validation
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[data,dev]"
 
-pytest -q                        # ~950 tests, no network, about two minutes
+pytest -q                        # ~950 tests, no network, about a minute
 qv demo null_mined               # audit a synthetic strategy with a known-zero edge
 ```
 
 `data` adds `yfinance`, needed only to *fetch* prices — the statistical core installs and runs with
 no network stack at all. `qv demo` writes a self-contained `report.html`; open it to see what the
 tool produces.
-
-### Claude Code
-
-The repository ships a [Claude Code](https://claude.com/claude-code) skill, so an agent can read a
-researcher's notebook, extract the strategy into an adapter, fill in the manifest, run the audit and
-interpret the findings.
-
-```bash
-qv skill install                 # this project only
-qv skill install --user          # every project
-```
-
-Then ask a Claude Code session to audit a backtest. The skill activates on its own. It carries the
-audit protocol, the adapter contract, the manifest schema and the findings catalog, so the agent
-orchestrates deterministic CLI commands rather than improvising statistics.
 
 ---
 

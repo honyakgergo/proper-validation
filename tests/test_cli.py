@@ -473,6 +473,61 @@ class TestValidateWithAManifest:
         assert "not both and not neither" in result.output
 
 
+class TestReachability:
+    """`qv` has to resolve in the researcher's project, not in the clone it was
+    installed from. The documented setup used to guarantee it would not."""
+
+    def _patch(self, monkeypatch, which, prefix, base_prefix):
+        import shutil
+
+        import qv.cli as cli
+
+        monkeypatch.setattr(shutil, "which", lambda name: which)
+        monkeypatch.setattr(cli.sys, "prefix", prefix)
+        monkeypatch.setattr(cli.sys, "base_prefix", base_prefix)
+
+    def test_not_on_path_at_all(self, monkeypatch):
+        from qv.cli import qv_is_reachable_anywhere
+
+        self._patch(monkeypatch, None, "/usr", "/usr")
+        reachable, why = qv_is_reachable_anywhere()
+        assert not reachable
+        assert "not on PATH" in why
+
+    def test_inside_a_virtualenv_does_not_count(self, tmp_path, monkeypatch):
+        """The exact shape of the bug: a venv in the clone, a skill installed
+        for every project, and a command that exists in only one of them."""
+        from qv.cli import qv_is_reachable_anywhere
+
+        venv = tmp_path / ".venv"
+        (venv / "bin").mkdir(parents=True)
+        script = venv / "bin" / "qv"
+        script.write_text("", encoding="utf-8")
+        self._patch(monkeypatch, str(script), str(venv), str(tmp_path / "sys"))
+        reachable, why = qv_is_reachable_anywhere()
+        assert not reachable
+        assert str(venv) in why
+
+    def test_an_isolated_tool_install_counts(self, tmp_path, monkeypatch):
+        """The negative control: pipx and uv put the script outside any
+        environment the interpreter is currently sitting in."""
+        from qv.cli import qv_is_reachable_anywhere
+
+        script = tmp_path / "bin" / "qv"
+        script.parent.mkdir(parents=True)
+        script.write_text("", encoding="utf-8")
+        self._patch(monkeypatch, str(script), str(tmp_path / "venv"), str(tmp_path / "sys"))
+        reachable, why = qv_is_reachable_anywhere()
+        assert reachable
+        assert why is None
+
+    def test_a_plain_system_install_counts(self, monkeypatch):
+        from qv.cli import qv_is_reachable_anywhere
+
+        self._patch(monkeypatch, "/usr/local/bin/qv", "/usr", "/usr")
+        assert qv_is_reachable_anywhere() == (True, None)
+
+
 class TestSkillInstall:
     """Installing the skill is the step that turns the CLI into something an
     agent can drive. It had no route at all before: the skill shipped in
@@ -503,6 +558,36 @@ class TestSkillInstall:
         assert head.startswith("---")
         assert "name: proper-validation" in head
         assert "description:" in head
+
+    def test_the_installed_skill_tells_the_agent_to_check_the_command_exists(self, tmp_path):
+        """The skill loads in every project; the command may not exist in any
+        of them. Step 0 is what stops the agent working around that."""
+        target = tmp_path / "s"
+        runner.invoke(app, ["skill", "install", "--target", str(target)])
+        body = (target / "SKILL.md").read_text(encoding="utf-8")
+        assert "qv --help" in body
+        assert "pipx install --editable" in body
+
+    def test_warns_when_qv_will_not_resolve_elsewhere(self, tmp_path, monkeypatch):
+        """Installing the skill from a virtualenv inside the clone is the
+        documented mistake: the skill goes everywhere, the command stays put."""
+        import qv.cli as cli
+
+        monkeypatch.setattr(cli, "qv_is_reachable_anywhere", lambda: (False, "it is in a venv"))
+        result = runner.invoke(app, ["skill", "install", "--target", str(tmp_path / "s")])
+        assert result.exit_code == 0
+        assert "it is in a venv" in result.stderr
+        assert "pipx install --editable" in result.stderr
+
+    def test_says_nothing_when_qv_is_already_reachable(self, tmp_path, monkeypatch):
+        """The negative control. A warning that fires unconditionally teaches
+        the reader to ignore it, which is worse than not warning at all."""
+        import qv.cli as cli
+
+        monkeypatch.setattr(cli, "qv_is_reachable_anywhere", lambda: (True, None))
+        result = runner.invoke(app, ["skill", "install", "--target", str(tmp_path / "s")])
+        assert result.exit_code == 0
+        assert "pipx" not in result.stderr
 
     def test_refuses_to_overwrite_without_force(self, tmp_path):
         target = tmp_path / "s"
