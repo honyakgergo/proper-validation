@@ -69,7 +69,15 @@ individual tests, but no string a reader sees mentions it.
 | `skill/` | The Claude Code skill. Installed by `qv skill install`. |
 | `benchmarks/` | Synthetic strategies with known ground truth, and the measured detection rates. |
 
-## Before you commit
+## Version control
+
+**Never run `git commit` or `git push` in this repository.** The maintainer
+commits and pushes everything themselves — leave your work in the working tree
+and say what changed. This holds even if a task looks finished, if the change
+is small, or if a previous step seemed to invite a commit. Read-only git
+commands (`status`, `diff`, `log`) are fine.
+
+## Before you hand work back
 
 ```bash
 pytest -q                      # must stay green; ~950 tests, no network

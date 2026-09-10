@@ -42,6 +42,22 @@ class TestGaussianNull:
         r = gaussian_max_sharpe_null(0.1, n_trials, 1.0, n_sims=20_000)
         assert r.empirical_expected_max == pytest.approx(expected_max_sharpe(n_trials), rel=0.05)
 
+    @pytest.mark.parametrize("n_trials", [100_000, 1_000_000])
+    def test_a_huge_trial_count_costs_nothing_extra(self, n_trials):
+        """The regression that OOM-killed CI.
+
+        Taking the maximum of a simulated ``(n_sims, n_trials)`` panel asks for
+        14.9 GiB at 100,000 trials and 149 GiB at a million, so the audit died
+        on a 16 GB runner without any test failing - the process was killed. A
+        large trial count is not an exotic input: `--trials` is documented as
+        the number to overstate when unsure, so this is the path a careful user
+        is steered onto.
+        """
+        r = gaussian_max_sharpe_null(0.1, n_trials, 1.0, n_sims=20_000)
+        assert r.null_distribution.size == 20_000
+        assert np.all(np.isfinite(r.null_distribution))
+        assert r.empirical_expected_max == pytest.approx(expected_max_sharpe(n_trials), rel=0.05)
+
     def test_says_it_cannot_validate_its_own_assumptions(self):
         r = gaussian_max_sharpe_null(0.1, 50, 0.05)
         assert "cannot validate them" in r.note

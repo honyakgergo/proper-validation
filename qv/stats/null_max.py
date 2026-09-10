@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+from scipy.special import ndtri_exp
 
 from qv.stats.bootstrap import politis_white_block_length, stationary_bootstrap_indices
 from qv.stats.deflated import expected_max_sharpe
@@ -215,12 +216,27 @@ def gaussian_max_sharpe_null(
 ) -> MaxSharpeNullResult:
     """Fallback when no trial matrix exists, only ``n_trials`` and a dispersion.
 
-    Draws ``n_trials`` independent normal Sharpes per replication and keeps the
+    Models ``n_trials`` independent normal Sharpes per replication and keeps the
     maximum. This reproduces the assumptions behind the analytic formula rather
     than testing them, so it cannot detect correlation or fat tails - it exists
     to draw the null-distribution chart when the matrix is unavailable, and its
     agreement with the closed form is a check on the implementation, not on the
     data.
+
+    The maximum is drawn **directly** rather than by simulating the trials and
+    taking their maximum. The two are the same distribution - the maximum of
+    ``N`` iid standard normals has CDF ``Phi(x)**N``, so it can be sampled
+    exactly as ``Phi^-1(U**(1/N))`` - but the second form allocates an
+    ``(n_sims, n_trials)`` array, and this function is reached precisely when
+    the trial count is large. At the 20,000 replications used by default, a
+    search of 100,000 configurations asked for a single 14.9 GiB array, which
+    was enough to get the test suite OOM-killed on a 16 GB CI runner. Drawing
+    the maximum is O(n_sims) instead of O(n_sims * n_trials).
+
+    ``ndtri_exp`` evaluates ``Phi^-1(exp(y))`` from the *log* probability, which
+    matters here: for a large ``N``, ``U**(1/N)`` rounds to 1.0 in float64 and
+    the upper tail - the only part of this distribution anyone reads - would be
+    quantised away.
     """
     if n_trials < 1:
         raise ValueError(f"n_trials must be at least 1, got {n_trials}")
@@ -230,8 +246,11 @@ def gaussian_max_sharpe_null(
         raise ValueError(f"n_sims must be at least 1, got {n_sims}")
 
     rng = np.random.default_rng(seed)
-    draws = rng.standard_normal((n_sims, n_trials)) * trial_sharpe_std
-    maxima = draws.max(axis=1)
+    # log(U)/N for U uniform on (0, 1], drawn as a negative exponential so that
+    # log(0) never arises. Clipped just below zero because ndtri_exp(0) is
+    # +inf: U == 1 is a draw the generator can legitimately produce.
+    log_u_over_n = np.minimum(-rng.standard_exponential(n_sims) / n_trials, -np.finfo(float).tiny)
+    maxima = trial_sharpe_std * ndtri_exp(log_u_over_n)
 
     return MaxSharpeNullResult(
         observed_sharpe=float(observed_sharpe),
