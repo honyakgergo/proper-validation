@@ -1,0 +1,80 @@
+# A real strategy, audited the way the tool is meant to be used.
+#
+# Nothing here is a strawman. Cross-sectional momentum on sector ETFs is a
+# standard, widely published construction, implemented honestly: signals are
+# computed from trailing data only, positions are shifted a session before they
+# earn anything, and the rebalance is genuinely monthly rather than silently
+# daily.
+
+name: Sector momentum - top 3 of 9 SPDR sectors, monthly rebalance
+
+data:
+  tickers: [XLB, XLE, XLF, XLI, XLK, XLP, XLU, XLV, XLY]
+  benchmark: SPY
+  start_date: "2005-01-01"
+  end_date: "2024-12-31"
+  source: yfinance
+  asset_class: us_large_cap_etf
+  frequency: daily
+  # Declared, because survivorship is the one question no tier can answer from
+  # the data. The audit records the answer and says so in the report.
+  universe_point_in_time: true
+  universe_note: >
+    All nine original SPDR sector funds have traded continuously since 1998, so
+    the universe is fixed for the whole sample and there is no survivorship
+    question. XLRE and XLC are deliberately excluded because they launched
+    mid-sample, and adding an instrument the day it lists is a subtle way to
+    buy hindsight.
+
+chosen_parameters:
+  lookback: 252
+  skip: 21
+  top_n: 3
+
+# How to re-run the strategy. This is what makes the audit Tier 2: the
+# validator can call the function again on data it controls, which is the only
+# way to settle whether the strategy reads the future.
+strategy:
+  adapter: strategy.py:momentum_positions
+
+search:
+  # Every configuration examined, not the one that survived. 4 lookbacks x
+  # 2 skips x 3 holding counts. Small by real standards, and still enough to
+  # move the Deflated Sharpe.
+  #
+  # Each axis is keyed by the parameter it varies, so the grid maps onto the
+  # strategy signature without anyone having to guess that `lookbacks` means
+  # `lookback`.
+  axes:
+    lookback: [126, 189, 252, 315]
+    skip: [0, 21]
+    top_n: [2, 3, 4]
+  # The grid is 24 wide and that is what gets audited. Declared separately
+  # because a grid is only a lower bound on a search - it cannot include the
+  # configurations abandoned before anyone wrote them down. Raise this above 24
+  # if more were really tried; the correction is logarithmic, so honesty is
+  # cheap.
+  n_trials: 24
+
+process:
+  positions_shifted: true
+  rebalance: monthly, on the last session of each month
+  lookahead_possible: false
+  full_sample_statistics_used: false
+  costs_derived_from_turnover: true
+  notes: >
+    The 252/21 pair was chosen because it is the conventional 12-1 month
+    momentum specification from the literature, not because it scored best -
+    but the whole grid is declared anyway, since "I picked the standard one"
+    is exactly the claim a reader has no way to verify.
+
+expectations:
+  # Written down before running the audit, so the result cannot be
+  # rationalised afterwards.
+  - Momentum is a documented factor, so a large positive loading on Mom is
+    expected and would not be a finding.
+  - The interesting question is whether alpha survives once FF5 and momentum
+    are accounted for. A cross-sectional momentum strategy that is simply
+    harvesting the momentum factor has not discovered anything.
+  - Monthly rebalancing across nine liquid ETFs should leave plenty of room
+    against realistic costs.

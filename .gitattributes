@@ -1,0 +1,12 @@
+# Normalise line endings in the repository to LF regardless of the platform a
+# contributor is on. Without this, committing from Windows stores CRLF and the
+# whole tree reads as modified the moment anyone checks it out on Linux or
+# macOS - which is noise in a repository whose committed reports are meant to
+# be read as artifacts rather than diffed.
+* text=auto eol=lf
+
+# The rendered reports are committed deliberately: most people arriving from a
+# link will read the output and never run anything. They are generated, so
+# there is no value in diffing them.
+*.html -diff linguist-generated
+report.json -diff linguist-generated

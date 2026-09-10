@@ -1,0 +1,995 @@
+{
+  "name": "Mined noise - best of 10,000 random rules on SPY",
+  "tier": 2,
+  "tier_label": "returns, positions and a re-runnable strategy",
+  "suite": "full",
+  "suite_label": "Statistical validation and engine analysis",
+  "suite_question": "Is the measured edge real, and is the backtest that measured it trustworthy?",
+  "verdict": "falsified",
+  "verdict_label": "Falsified",
+  "worst_severity": "critical",
+  "n_obs": 1004,
+  "periods_per_year": 252,
+  "not_tested": [
+    "Risk-free adjustment: none was supplied, so every Sharpe on this page is computed on total returns. That overstates the risk-adjusted result by the cash rate divided by the volatility, and it overstates it most for the least volatile series in any comparison. Ken French's RF is the intended source.",
+    "Factor attribution: no factor returns were supplied (Ken French FF5 plus momentum is the intended source).",
+    "Parameter-neighbourhood plateau: no parameter grid scores were supplied."
+  ],
+  "findings": [
+    {
+      "id": "SELECT-DEFLATED-SHARPE-FAILS",
+      "title": "Sharpe does not survive the selection-adjusted bar",
+      "severity": "critical",
+      "severity_rank": 4,
+      "detail": "Deflated Sharpe is 0.081 against 10000 trials. The observed per-period Sharpe of 0.0811 sits against an expected best-of-10000 under the null of 0.1253.",
+      "remediation": "Reduce the trial count by fixing parameters on theoretical grounds, extend the sample, or test the strategy on genuinely fresh data. Nothing else recovers a failed deflation.",
+      "evidence": {
+        "observed_sharpe": 0.08106235576747288,
+        "expected_max_sharpe": 0.1253499637636472,
+        "dsr": 0.0809503784668551,
+        "p_value": 0.919049621533145,
+        "survives": false,
+        "n_trials": 10000,
+        "trial_sharpe_std": 0.03246849142699645,
+        "trial_sharpe_std_source": "measured from 10000 trial columns",
+        "n_obs": 1004,
+        "skewness": 0.009761596682787387,
+        "kurtosis": 4.871375290789642,
+        "reliable": true,
+        "note": null
+      }
+    },
+    {
+      "id": "SELECT-INSUFFICIENT-LENGTH",
+      "title": "Backtest is too short to support its claim given the trial count",
+      "severity": "high",
+      "severity_rank": 3,
+      "detail": "4.0 years of data against a minimum backtest length of 14.9 years for 10000 trials at a target Sharpe of 1.0.",
+      "remediation": "Extend the sample, or reduce the number of configurations examined.",
+      "evidence": {
+        "sample_years": 3.984126984126984,
+        "min_years": 14.904733126573447,
+        "n_trials": 10000
+      }
+    },
+    {
+      "id": "ENGINE-EXECUTION-FRAGILE",
+      "title": "The edge does not survive being traded late",
+      "severity": "medium",
+      "severity_rank": 2,
+      "detail": "Trading the same book one period later retains 58% of the Sharpe (1.42 to 0.82 annualised). An edge that depends on executing at the moment the signal is computed is an artifact of the backtest's timing assumptions rather than a property of the market, and no real book is filled that promptly.",
+      "remediation": "Re-run the backtest with a realistic execution lag for the venue and report that as the headline result. If the edge only exists at zero delay, it is not an edge.",
+      "evidence": {
+        "base_sharpe": 1.419061723612675,
+        "delayed_sharpe": 0.8229027190506673,
+        "one_period_retention": 0.5798921254501217,
+        "surviving_delay": 10
+      }
+    }
+  ],
+  "provenance": {
+    "generated_utc": "2026-09-10T16:22:35+00:00",
+    "data_hash": "0eab6447855bc238",
+    "seed": 0,
+    "n_boot": 2000,
+    "confidence": 0.95,
+    "python": "3.12.4",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "numpy": "2.5.3"
+  },
+  "conventions": {
+    "risk_free_supplied": false,
+    "risk_free_per_period": 0.0,
+    "risk_free_annualised": 0.0,
+    "sharpe_basis": "total returns (no risk-free rate supplied)",
+    "level_basis": "total returns",
+    "mean_idle_weight": null,
+    "idle_cash_understatement": null
+  },
+  "data": {
+    "universe_point_in_time": true,
+    "universe_note": "A single instrument, SPY, fixed before the search."
+  },
+  "sharpe": {
+    "n_obs": 1004,
+    "periods_per_year": 252,
+    "periodic": {
+      "value": 0.08939248608880505,
+      "ci_low": 0.0273287119497403,
+      "ci_high": 0.15145626022786982,
+      "method": "Lo/Mertens analytic SE",
+      "n_obs": 1004,
+      "reliable": true,
+      "note": null
+    },
+    "annualised_naive": {
+      "value": 1.419061723612675,
+      "ci_low": 0.4338298528243917,
+      "ci_high": 2.4042935944009582,
+      "method": "naive sqrt(252) annualisation",
+      "n_obs": 1004,
+      "reliable": true,
+      "note": null
+    },
+    "annualised_adjusted": {
+      "value": 1.4218029087269664,
+      "ci_low": 0.43466787693208864,
+      "ci_high": 2.4089379405218443,
+      "method": "Lo (2002) autocorrelation-adjusted annualisation",
+      "n_obs": 1004,
+      "reliable": true,
+      "note": null
+    },
+    "factor_naive": 15.874507866387544,
+    "factor_lo": 15.9051724695799,
+    "autocorrelation_haircut": -0.0019316884309392712,
+    "skewness": 0.011678825798028118,
+    "kurtosis": 4.892394878287258,
+    "tstat": 2.823000303364985,
+    "autocorrelation_note": "annualising to 252 periods implies a sum over 251 lags, but 1004 observations can only speak to about 37; the adjustment assumes no dependence beyond that, and cannot rule out longer-horizon persistence"
+  },
+  "performance": {
+    "name": "Strategy",
+    "n_obs": 1004,
+    "periods_per_year": 252,
+    "total_return": 1.399122587951155,
+    "annualised_return": 0.24563742538297517,
+    "annualised_volatility": 0.16435155438208923,
+    "sharpe": 1.419061723612675,
+    "sortino": 2.1526776350274948,
+    "max_drawdown": -0.15992457513252323,
+    "max_drawdown_length": 50,
+    "calmar": 1.5359579675570503,
+    "hit_rate": 0.5328685258964143,
+    "best_period": 0.05495406275875747,
+    "worst_period": -0.0403118387697492,
+    "skewness": 0.011678825798028118,
+    "kurtosis": 4.892394878287258
+  },
+  "bootstrap": {
+    "observed": 0.08939248608880505,
+    "ci_low": 0.026275940663792886,
+    "ci_high": 0.15204834462924485,
+    "standard_error": 0.031561887971203226,
+    "block_length": 1.0,
+    "n_boot": 2000,
+    "n_obs": 1004,
+    "confidence": 0.95,
+    "reliable": true,
+    "note": null,
+    "annualised_observed": 1.4218029087269664,
+    "annualised_ci_low": 0.4179233680580736,
+    "annualised_ci_high": 2.4183551450422622,
+    "naive_ci_low": 0.4171176267641125,
+    "naive_ci_high": 2.4136926428881518
+  },
+  "risk": {
+    "total_return": {
+      "name": "total return",
+      "realised": 1.399122587951155,
+      "median": 1.3680789979592767,
+      "ci_low": 0.399056820472206,
+      "ci_high": 3.067092937388263,
+      "percentile": 0.5146666666666667,
+      "baseline_median": null,
+      "baseline_percentile": null,
+      "baseline_label": null,
+      "outside_resamples": false,
+      "n_draws": 1500
+    },
+    "sharpe": {
+      "name": "annualised Sharpe",
+      "realised": 1.419061723612675,
+      "median": 1.3969890453809475,
+      "ci_low": 0.5995324507972627,
+      "ci_high": 2.246559180933215,
+      "percentile": 0.5193333333333333,
+      "baseline_median": null,
+      "baseline_percentile": null,
+      "baseline_label": null,
+      "outside_resamples": false,
+      "n_draws": 1500
+    },
+    "max_drawdown": {
+      "name": "maximum drawdown",
+      "realised": -0.15992457513252323,
+      "median": -0.1676260777041529,
+      "ci_low": -0.2728396754913028,
+      "ci_high": -0.10898791571132799,
+      "percentile": 0.5593333333333333,
+      "baseline_median": -0.16498420835472916,
+      "baseline_percentile": 0.5513333333333333,
+      "baseline_label": "matched random walk",
+      "outside_resamples": false,
+      "n_draws": 1500
+    },
+    "drawdown_path_dependent": false,
+    "drawdown_severity": "info",
+    "n_obs": 1004,
+    "n_boot": 1500,
+    "block_length": 1.0,
+    "periods_per_year": 252,
+    "reliable": true,
+    "note": "block resampling with a mean block of 1.0 periods cannot reassemble drawdowns that unfolded over much longer horizons, so the resampled distribution understates how deep a drawdown this strategy can produce"
+  },
+  "costs": {
+    "break_even_bps": 32.15218048553156,
+    "gross_sharpe": 0.08939248608880505,
+    "mean_turnover": 0.28784860557768926,
+    "annual_turnover": 72.5378486055777,
+    "target_sharpe": 0.0,
+    "asset_class": "us_large_cap_etf",
+    "asset_class_label": "US large-cap ETFs",
+    "realistic_bps": [
+      1.0,
+      3.0
+    ],
+    "survives_realistic_costs": true,
+    "margin": 10.717393495177186,
+    "severity": "info",
+    "note": null,
+    "average_turnover": 72.5378486055777
+  },
+  "selection": {
+    "deflated_sharpe": {
+      "observed_sharpe": 0.08106235576747288,
+      "expected_max_sharpe": 0.1253499637636472,
+      "dsr": 0.0809503784668551,
+      "p_value": 0.919049621533145,
+      "survives": false,
+      "n_trials": 10000,
+      "trial_sharpe_std": 0.03246849142699645,
+      "trial_sharpe_std_source": "measured from 10000 trial columns",
+      "n_obs": 1004,
+      "skewness": 0.009761596682787387,
+      "kurtosis": 4.871375290789642,
+      "reliable": true,
+      "note": null
+    },
+    "basis": "net of costs",
+    "basis_note": "Deflation runs on returns net of 3 bps, the upper end of realistic cost for US large-cap ETFs, so this figure sits slightly below the gross Sharpe in the headline.",
+    "minimum_backtest_length_years": 14.904733126573447,
+    "sample_years": 3.984126984126984,
+    "sample_long_enough": false,
+    "haircut": {
+      "observed_tstat": 2.823000303364985,
+      "adjusted_tstat": 0.0,
+      "observed_pvalue": 0.0047576526592043086,
+      "adjusted_pvalue": 1.0,
+      "n_trials": 10000,
+      "haircut": 1.0,
+      "observed_sharpe": 1.4218029087269664,
+      "haircut_sharpe": 0.0,
+      "required_tstat": 4.435279221694462,
+      "required_sharpe": 2.233826503987502,
+      "n_tests": 10000,
+      "rank": 18,
+      "used_trial_family": true,
+      "significant_at_5pct": false,
+      "censored": true,
+      "method": "Benjamini-Hochberg-Yekutieli (Harvey and Liu 2015), over the observed trial t-statistics"
+    }
+  },
+  "null_max": {
+    "observed_sharpe": 0.089392486088805,
+    "analytic_expected_max": 0.1253499637636472,
+    "empirical_expected_max": 0.09465324015303093,
+    "agreement_ratio": 0.7551118270086118,
+    "analytic_disagrees": true,
+    "disagreement_direction": "trials were correlated, so the effective number of independent bets is below n_trials and the analytic Deflated Sharpe over-penalises",
+    "percentile": 0.4053333333333333,
+    "p_value": 0.5949367088607594,
+    "n_trials": 10000,
+    "n_sims": 1500,
+    "method": "stationary bootstrap of demeaned trials, rows resampled jointly",
+    "block_length": 1.0,
+    "note": null
+  },
+  "pbo": {
+    "pbo": 0.32393162393162395,
+    "overfit": false,
+    "median_oos_rank": 0.6916308369163083,
+    "degradation_slope": -0.506922157480489,
+    "degradation_intercept": 0.050580988030662764,
+    "probability_of_loss": 0.6123543123543124,
+    "n_splits": 16,
+    "n_combinations": 12870,
+    "n_trials": 10000,
+    "n_obs": 1004,
+    "note": null
+  },
+  "benchmark": {
+    "benchmark_name": "SPY",
+    "strategy_sharpe": 0.08939248608880505,
+    "benchmark_sharpe": 0.05549433297518317,
+    "scaled_benchmark_sharpe": 0.05549433297518317,
+    "excess_sharpe": 0.03389815311362188,
+    "leverage": 0.9975583797417393,
+    "strategy_volatility": 0.010353174773378951,
+    "benchmark_volatility": 0.010378515166259556,
+    "correlation": 0.5539137197662145,
+    "beta": 0.5525612728067046,
+    "beats_benchmark": true,
+    "is_levered_beta": false,
+    "severity": "info",
+    "n_obs": 1004,
+    "strategy_sharpe_annualised": 1.419061723612675,
+    "benchmark_sharpe_annualised": 0.880945225354475,
+    "scaled_benchmark_sharpe_annualised": 0.880945225354475,
+    "excess_sharpe_annualised": 0.5381164982582
+  },
+  "benchmark_performance": {
+    "name": "SPY",
+    "n_obs": 1004,
+    "periods_per_year": 252,
+    "total_return": 0.6888339916985886,
+    "annualised_return": 0.14057387721798653,
+    "annualised_volatility": 0.16475382064820976,
+    "sharpe": 0.880945225354475,
+    "sortino": 1.264014399339496,
+    "max_drawdown": -0.24496388734674468,
+    "max_drawdown_length": 195,
+    "calmar": 0.5738555129107875,
+    "hit_rate": 0.5408366533864541,
+    "best_period": 0.05495406275875747,
+    "worst_period": -0.043482525143137885,
+    "skewness": -0.20717606193412116,
+    "kurtosis": 4.924021433957116
+  },
+  "top_days": {
+    "full_sharpe": 0.08939248608880505,
+    "drop_fractions": [
+      0.01,
+      0.05
+    ],
+    "sharpes": [
+      0.0605908013276463,
+      -0.031211280915644492
+    ],
+    "total_return_shares": [
+      0.3629488531916195,
+      1.2888045833767208
+    ],
+    "expected_shares": [
+      0.3070704688644695,
+      1.199872712329106
+    ],
+    "concentration_ratios": [
+      1.1819725111756443,
+      1.074117754436624
+    ],
+    "worst_concentration_ratio": 1.1819725111756443,
+    "sharpe_after_dropping_top_1pct": 0.0605908013276463,
+    "sharpe_after_dropping_top_5pct": -0.031211280915644492,
+    "abnormally_concentrated": false,
+    "severity": "info",
+    "n_obs": 1004,
+    "full_sharpe_annualised": 1.419061723612675,
+    "sharpes_annualised": [
+      0.9618491523064461,
+      -0.4954637244154299
+    ],
+    "sharpe_after_dropping_top_1pct_annualised": 0.9618491523064461,
+    "sharpe_after_dropping_top_5pct_annualised": -0.4954637244154299
+  },
+  "rolling_origin": {
+    "start_indices": [
+      0,
+      26,
+      52,
+      79,
+      105,
+      132,
+      158,
+      184,
+      211,
+      237,
+      264,
+      290,
+      317,
+      343,
+      369,
+      396,
+      422,
+      449,
+      475,
+      502
+    ],
+    "start_fractions": [
+      0.0,
+      0.025896414342629483,
+      0.05179282868525897,
+      0.07868525896414343,
+      0.10458167330677291,
+      0.13147410358565736,
+      0.15737051792828685,
+      0.18326693227091634,
+      0.2101593625498008,
+      0.2360557768924303,
+      0.26294820717131473,
+      0.28884462151394424,
+      0.3157370517928287,
+      0.34163346613545814,
+      0.36752988047808766,
+      0.3944223107569721,
+      0.4203187250996016,
+      0.44721115537848605,
+      0.47310756972111556,
+      0.5
+    ],
+    "sharpes": [
+      0.08939248608880505,
+      0.08590252410161768,
+      0.08778985588943387,
+      0.08255928519632892,
+      0.08401558387180628,
+      0.0810350177750675,
+      0.08175896261411184,
+      0.0818946899791946,
+      0.07933526716524632,
+      0.08040523580100838,
+      0.08636197292309405,
+      0.07851615432384527,
+      0.07763979818817751,
+      0.10360420910546433,
+      0.11446086678982233,
+      0.10477743818947681,
+      0.10177788309295727,
+      0.08384177531670112,
+      0.06779554363290799,
+      0.05477695307213778
+    ],
+    "full_sharpe": 0.08939248608880505,
+    "min_sharpe": 0.05477695307213778,
+    "max_sharpe": 0.11446086678982233,
+    "spread": 0.05968391371768455,
+    "fraction_positive": 1.0,
+    "sign_stable": true,
+    "relative_stability": 0.4785648982784783,
+    "start_date_dependent": false,
+    "severity": "info",
+    "n_obs": 1004,
+    "min_sharpe_annualised": 0.8695571724403925,
+    "max_sharpe_annualised": 1.8170099302485714,
+    "sharpes_annualised": [
+      1.419061723612675,
+      1.3636602945936755,
+      1.3936207579058468,
+      1.3105880222924562,
+      1.3337060470721314,
+      1.2863910271231636,
+      1.2978832951654036,
+      1.3000379002900937,
+      1.2594083226966601,
+      1.276393548221853,
+      1.3709538185244046,
+      1.2464053094523802,
+      1.2324935870829654,
+      1.6446658324355536,
+      1.8170099302485714,
+      1.6632902667587843,
+      1.615673805783422,
+      1.330946921796869,
+      1.076220890706618,
+      0.8695571724403925
+    ]
+  },
+  "regimes": {
+    "labels": [
+      "low volatility",
+      "high volatility"
+    ],
+    "sharpes": [
+      0.02136561276008161,
+      0.12756233022479452
+    ],
+    "counts": [
+      471,
+      470
+    ],
+    "mean_returns": [
+      0.0001651407158954119,
+      0.0015917103856720456
+    ],
+    "full_sharpe": 0.08939248608880505,
+    "spread": 0.1061967174647129,
+    "sign_stable": true,
+    "concentrated_in_one_regime": false,
+    "severity": "info",
+    "threshold": 0.00862170293983143,
+    "n_classified": 941,
+    "n_obs": 1004,
+    "note": "63 leading observations had too little history to classify and are excluded",
+    "sharpes_annualised": [
+      0.3391685878301056,
+      2.024989214608226
+    ],
+    "full_sharpe_annualised": 1.419061723612675
+  },
+  "sign_flip": {
+    "test": "sign-flip",
+    "description": "signs of 21-period blocks randomly flipped, preserving volatility clustering",
+    "observed": 0.08939248608880505,
+    "null_mean": -0.0009754183204224587,
+    "percentile": 1.0,
+    "p_value": 0.000999000999000999,
+    "significant_at_5pct": true,
+    "severity": "info",
+    "n_sims": 1000
+  },
+  "matched_exposure": {
+    "test": "matched-exposure random entry",
+    "description": "position blocks of 6 periods randomly reordered, preserving average exposure (0.334) and holding-period structure",
+    "observed": 0.08939248608880505,
+    "null_mean": 0.018116785103823266,
+    "percentile": 0.992,
+    "p_value": 0.008991008991008992,
+    "significant_at_5pct": true,
+    "severity": "info",
+    "n_sims": 1000
+  },
+  "determinism": {
+    "deterministic": true,
+    "n_calls": 3,
+    "max_difference": 0.0
+  },
+  "degeneracy": {
+    "n_obs": 1004,
+    "n_instruments": 1,
+    "n_distinct_books": 3,
+    "n_changes": 145,
+    "fraction_flat": 0.00099601593625498,
+    "constant_exposure": false,
+    "never_invested": false,
+    "degenerate": false
+  },
+  "execution_delay": {
+    "delays": [
+      0,
+      1,
+      2,
+      3,
+      5,
+      10
+    ],
+    "sharpes": [
+      1.419061723612675,
+      0.8229027190506673,
+      0.19301288597761046,
+      0.15026970924651487,
+      0.044043283936156016,
+      0.8601029291589989
+    ],
+    "retention": [
+      1.0,
+      0.5798921254501217,
+      0.13601444022197604,
+      0.10589370902342099,
+      0.031036905022023824,
+      0.606106778054257
+    ],
+    "base_sharpe": 1.419061723612675,
+    "one_period_retention": 0.5798921254501217,
+    "surviving_delay": 10,
+    "severity": "medium",
+    "periods_per_year": 252
+  },
+  "universe_coverage": {
+    "instruments": [
+      "SPY"
+    ],
+    "coverage": [
+      1.0
+    ],
+    "first_index": [
+      0
+    ],
+    "last_index": [
+      1003
+    ],
+    "late_entrants": [],
+    "early_exits": [],
+    "complete": true,
+    "n_obs": 1004
+  },
+  "perturbation": {
+    "leaked": false,
+    "cut_index": 992,
+    "n_obs": 1004,
+    "n_changed": 0,
+    "fraction_changed": 0.0,
+    "max_absolute_change": 0.0,
+    "first_changed_index": null,
+    "lookahead_span": null,
+    "modes_tested": [
+      "shuffle",
+      "noise",
+      "constant",
+      "reverse"
+    ],
+    "modes_that_leaked": [],
+    "tolerance": 1e-10,
+    "cuts_tested": [
+      2,
+      301,
+      389,
+      456,
+      502,
+      531,
+      632,
+      702,
+      785,
+      881,
+      903,
+      992
+    ],
+    "cuts_that_leaked": [],
+    "signal_update_interval": 2,
+    "detection_floor": 2,
+    "clean_claim": "No dependence on data more than about 2 periods after the decision point. The strategy revises its position every 2 periods on average, and a leak shorter than that is overwritten before it reaches the book.",
+    "reaches": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "charts": [
+    {
+      "name": "haircut_cascade",
+      "title": "Sharpe after each adjustment",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "stages": [
+          {
+            "label": "Claimed (naive annualisation)",
+            "value": 1.419061723612675,
+            "ci_low": null,
+            "ci_high": null,
+            "note": null
+          },
+          {
+            "label": "Autocorrelation-adjusted",
+            "value": 1.4218029087269664,
+            "ci_low": 0.4179233680580736,
+            "ci_high": 2.4183551450422622,
+            "note": null
+          },
+          {
+            "label": "Net of 3 bps costs",
+            "value": 1.3032216805604184,
+            "ci_low": null,
+            "ci_high": null,
+            "note": null
+          },
+          {
+            "label": "After the BHY haircut (10000 trials)",
+            "value": 0.0,
+            "ci_low": null,
+            "ci_high": null,
+            "note": "fully absorbed - 10000 trials needed t = 4.44, this has 2.82"
+          }
+        ],
+        "zero_line": 0.0
+      }
+    },
+    {
+      "name": "max_sharpe_null",
+      "title": "Where the reported result sits against a search with no edge",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "observed": 0.089392486088805,
+        "percentile": 0.4053333333333333,
+        "n_sims": 1500,
+        "n_trials": 10000,
+        "null_mean": 0.09465324015303093,
+        "null_p05": 0.07078387311174246,
+        "null_p50": 0.09328679527590533,
+        "null_p95": 0.1245811228356841,
+        "analytic_expected_max": 0.1253499637636472
+      }
+    },
+    {
+      "name": "break_even_curve",
+      "title": "How much trading cost the edge can absorb",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "cost_bps": [
+          0.0,
+          0.8174283174287684,
+          1.6348566348575369,
+          2.4522849522863055,
+          3.2697132697150737,
+          4.087141587143842,
+          4.904569904572611,
+          5.721998222001379,
+          6.539426539430147,
+          7.356854856858916,
+          8.174283174287684,
+          8.991711491716453,
+          9.809139809145222,
+          10.62656812657399,
+          11.443996444002758,
+          12.261424761431526,
+          13.078853078860295,
+          13.896281396289064,
+          14.713709713717831,
+          15.5311380311466,
+          16.348566348575368,
+          17.16599466600414,
+          17.983422983432906,
+          18.800851300861673,
+          19.618279618290444,
+          20.43570793571921,
+          21.25313625314798,
+          22.070564570576746,
+          22.887992888005517,
+          23.705421205434284,
+          24.52284952286305,
+          25.340277840291822,
+          26.15770615772059,
+          26.975134475149357,
+          27.792562792578128,
+          28.609991110006895,
+          29.427419427435662,
+          30.244847744864433,
+          31.0622760622932,
+          31.879704379721968,
+          32.697132697150735,
+          33.514561014579506,
+          34.33198933200828,
+          35.14941764943704,
+          35.96684596686581,
+          36.78427428429458,
+          37.601702601723346,
+          38.41913091915212,
+          39.23655923658089,
+          40.05398755400965,
+          40.87141587143842,
+          41.688844188867186,
+          42.50627250629596,
+          43.32370082372473,
+          44.14112914115349,
+          44.95855745858226,
+          45.775985776011034,
+          46.5934140934398,
+          47.41084241086857,
+          48.22827072829734
+        ],
+        "net_sharpe": [
+          1.419061723612675,
+          1.3830905261125102,
+          1.3470724333803723,
+          1.3110107498682306,
+          1.2749087926872293,
+          1.2387698900823008,
+          1.202597379898222,
+          1.1663946080387833,
+          1.1301649269207084,
+          1.093911693924001,
+          1.0576382698403863,
+          1.0213480173215141,
+          0.9850442993285875,
+          0.948730477585083,
+          0.9124099110341978,
+          0.8760859543026833,
+          0.8397619561726539,
+          0.8034412580630097,
+          0.7671271925220207,
+          0.730823081732647,
+          0.6945322360321188,
+          0.658257952447269,
+          0.622003513247087,
+          0.5857721845139211,
+          0.5495672147347235,
+          0.5133918334136803,
+          0.47724924970754584,
+          0.44114265108493506,
+          0.4050752020107994,
+          0.3690500426572486,
+          0.3330702876418399,
+          0.29713902479440296,
+          0.2612593139534182,
+          0.22543418579289679,
+          0.18966664068068487,
+          0.15395964756903088,
+          0.11831614291820722,
+          0.0827390296539285,
+          0.04723117615923794,
+          0.01179541530148127,
+          -0.023565456505068774,
+          -0.05884868020044285,
+          -0.09405153494360867,
+          -0.1291713389401306,
+          -0.16420545023252506,
+          -0.19915126745304654,
+          -0.23400623053868694,
+          -0.26876782140823696,
+          -0.30343356460130916,
+          -0.3380010278792736,
+          -0.372467822788121,
+          -0.4068316051832968,
+          -0.441090075716647,
+          -0.4752409802855995,
+          -0.5092821104448242,
+          -0.5432113037806007,
+          -0.5770264442482168,
+          -0.6107254624727241,
+          -0.6443063360134568,
+          -0.6777670895927185
+        ],
+        "break_even_bps": 32.15218048553156,
+        "realistic_bps": [
+          1.0,
+          3.0
+        ],
+        "periods_per_year": 252
+      }
+    },
+    {
+      "name": "pbo_panel",
+      "title": "Does the selection procedure generalise?",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "pbo": 0.32393162393162395,
+        "n_combinations": 12870,
+        "fraction_negative_logit": 0.32393162393162395,
+        "median_oos_sharpe": -0.012286256901025649,
+        "median_oos_sharpe_annualised": -0.1950382818237899,
+        "probability_of_loss": 0.6123543123543124
+      }
+    },
+    {
+      "name": "risk_distributions",
+      "title": "How much of this was the path it took?",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "total_return": {
+          "name": "total return",
+          "realised": 1.399122587951155,
+          "median": 1.3680789979592767,
+          "ci_low": 0.399056820472206,
+          "ci_high": 3.067092937388263,
+          "percentile": 0.5146666666666667,
+          "baseline_median": null,
+          "baseline_percentile": null,
+          "baseline_label": null,
+          "outside_resamples": 0.0,
+          "n_draws": 1500.0
+        },
+        "sharpe": {
+          "name": "annualised Sharpe",
+          "realised": 1.419061723612675,
+          "median": 1.3969890453809475,
+          "ci_low": 0.5995324507972627,
+          "ci_high": 2.246559180933215,
+          "percentile": 0.5193333333333333,
+          "baseline_median": null,
+          "baseline_percentile": null,
+          "baseline_label": null,
+          "outside_resamples": 0.0,
+          "n_draws": 1500.0
+        },
+        "max_drawdown": {
+          "name": "maximum drawdown",
+          "realised": -0.15992457513252323,
+          "median": -0.1676260777041529,
+          "ci_low": -0.2728396754913028,
+          "ci_high": -0.10898791571132799,
+          "percentile": 0.5593333333333333,
+          "baseline_median": -0.16498420835472916,
+          "baseline_percentile": 0.5513333333333333,
+          "baseline_label": "matched random walk",
+          "outside_resamples": 0.0,
+          "n_draws": 1500.0
+        }
+      }
+    },
+    {
+      "name": "regime_equity_curve",
+      "title": "Equity curve, with the volatile regime shaded",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "n_obs": 1004,
+        "final_cumulative_return": 1.399122587951155,
+        "max_cumulative_return": 1.5119357695330287,
+        "min_cumulative_return": 0.0,
+        "regime_label": "high volatility",
+        "dated": true,
+        "fraction_in_regime": 0.4681274900398406,
+        "return_in_regime_sum": 0.7481038812658615,
+        "return_out_of_regime_sum": 0.18109413476600078
+      }
+    },
+    {
+      "name": "lookahead_horizon",
+      "title": "How far the strategy reaches into the future",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "gaps": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          8.0
+        ],
+        "detected": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "detection_floor": 2,
+        "horizon": null,
+        "leaked": false
+      }
+    },
+    {
+      "name": "execution_delay_fragility",
+      "title": "What the edge is worth if the book is traded late",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "delays": [
+          0,
+          1,
+          2,
+          3,
+          5,
+          10
+        ],
+        "annualised_sharpes": [
+          1.419061723612675,
+          0.8229027190506673,
+          0.19301288597761046,
+          0.15026970924651487,
+          0.044043283936156016,
+          0.8601029291589989
+        ],
+        "base_sharpe": 1.419061723612675,
+        "one_period_retention": 0.5798921254501217,
+        "periods_per_year": 252
+      }
+    },
+    {
+      "name": "universe_coverage",
+      "title": "When each instrument enters and leaves the universe",
+      "available": true,
+      "reason": null,
+      "spec": {
+        "instruments": [
+          "SPY"
+        ],
+        "coverage": [
+          1.0
+        ],
+        "late_entrants": [],
+        "early_exits": [],
+        "complete": true,
+        "n_obs": 1004
+      }
+    }
+  ]
+}

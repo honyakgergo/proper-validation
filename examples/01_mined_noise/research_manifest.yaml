@@ -1,0 +1,50 @@
+# The contract that makes this audit reproducible.
+#
+# Every field here is something the researcher asserts and the tool relies on.
+# end_date is pinned deliberately: an example that leaves it open reproduces
+# whatever the vendor returns today, not the numbers that were published.
+
+name: Mined noise - best of 10,000 random rules on SPY
+
+data:
+  ticker: SPY
+  start_date: "2021-01-01"
+  end_date: "2024-12-31"
+  source: yfinance
+  asset_class: us_large_cap_etf
+  frequency: daily
+
+search:
+  n_rules: 10000
+  seed: 0
+  family: >
+    random conjunctions of two thresholded technical indicators drawn from a
+    bank of 30 (moving-average ratios, momentum, mean-reversion z-scores,
+    volatility, range position, sign streaks), long when both conditions agree
+    and short otherwise
+  # The number that matters. Every rule generated is counted, because the
+  # entire point of the example is that this figure is usually understated.
+  trials_declared_honestly: true
+
+ground_truth:
+  has_edge: false
+  reason: >
+    Random conjunctions of ordinary technical indicators carry no predictive
+    content beyond chance, and the median rule in this search earns a
+    *negative* Sharpe - confirming the family has no drift exposure smuggled
+    into it. Ten thousand such rules produce a best-of-N winner whose entire
+    performance is selection, so the true edge is zero.
+
+    Note the ceiling. Mining cannot manufacture an arbitrarily good Sharpe: the
+    expected best of N zero-edge trials grows only as sqrt(2*log(N)/T), so on
+    twenty years of daily data even ten thousand trials top out near 0.9. A
+    four-year window is used here because that is where mining produces a
+    number people actually publish - which is itself the uncomfortable point.
+
+process:
+  positions_shifted: true
+  lookahead_possible: false
+  notes: >
+    Each signal is computed from data up to t and traded from t+1, so there is
+    no look-ahead. This is deliberate - the demonstration is about selection
+    bias alone, uncontaminated by leakage.

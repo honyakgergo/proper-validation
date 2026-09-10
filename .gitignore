@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test and type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Market data. The repository deliberately ships none: every download lands in
+# a platform cache directory outside the tree, and a 500-ticker daily universe
+# over twenty years is 50-100 MB as Parquet. A stray CSV or Parquet in here is
+# almost always someone's local data rather than something to publish.
+.qv/
+*.parquet
+*.pq
+*.csv
+
+# Reports written by the tool. These are the CLI's default output directories,
+# so anyone who runs `qv validate` or `qv demo` inside a clone would otherwise
+# find their own audit staged for commit. The example reports under
+# examples/ and real_user_tests/ are committed deliberately and are not
+# matched by these patterns.
+qv_report/
+qv_demo/
+
+# Credentials. Nothing in this project needs any, which is exactly why an
+# .env appearing here would be an accident worth catching.
+.env
+.env.*
+*.pem
+*.key
+
+# Claude Code local state. The skill source lives in skill/ and is installed
+# into .claude/skills/ by `qv skill install`, so the installed copy is a build
+# artifact rather than something to track.
+.claude/
+CLAUDE.local.md
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Working notes. The original design document and the running session handoff
+# are how this got built, not part of what it is - they are kept locally and
+# deliberately not published. CLAUDE.md is different and is committed: it is
+# forward-looking guidance for working on the source, not a record of how the
+# source came to be.
+PLAN.md
+PROGRESS.md

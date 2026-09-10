@@ -1,0 +1,203 @@
+{
+  "replications": 25,
+  "observations": 2000,
+  "results": [
+    {
+      "label": "null_mined",
+      "has_edge": false,
+      "description": "best of 400 random sign rules on a simulated index",
+      "replications": 25,
+      "flag_rate": 1.0,
+      "flag_rate_ci": [
+        0.8668035060468213,
+        1.0
+      ],
+      "correct_rate": 1.0,
+      "verdicts": {
+        "falsified": 23,
+        "weakened": 2
+      },
+      "expected_findings": [
+        "SELECT-DEFLATED-SHARPE-FAILS"
+      ],
+      "expected_hits": {
+        "SELECT-DEFLATED-SHARPE-FAILS": 25
+      },
+      "mean_findings": 2.64
+    },
+    {
+      "label": "null_pure",
+      "has_edge": false,
+      "description": "one random-timing strategy, no search",
+      "replications": 25,
+      "flag_rate": 0.92,
+      "flag_rate_ci": [
+        0.7503348787704218,
+        0.977780066308908
+      ],
+      "correct_rate": 0.92,
+      "verdicts": {
+        "falsified": 4,
+        "weakened": 19,
+        "not_falsified": 2
+      },
+      "expected_findings": [],
+      "expected_hits": {},
+      "mean_findings": 3.16
+    },
+    {
+      "label": "leaky_shift",
+      "has_edge": false,
+      "description": "position takes the sign of the next period return",
+      "replications": 25,
+      "flag_rate": 1.0,
+      "flag_rate_ci": [
+        0.8668035060468213,
+        1.0
+      ],
+      "correct_rate": 1.0,
+      "verdicts": {
+        "falsified": 25
+      },
+      "expected_findings": [
+        "LEAK-BEHAVIOURAL"
+      ],
+      "expected_hits": {
+        "LEAK-BEHAVIOURAL": 25
+      },
+      "mean_findings": 3.36
+    },
+    {
+      "label": "leaky_scaler",
+      "has_edge": false,
+      "description": "mean-reversion threshold from a full-sample z-score",
+      "replications": 25,
+      "flag_rate": 1.0,
+      "flag_rate_ci": [
+        0.8668035060468213,
+        1.0
+      ],
+      "correct_rate": 1.0,
+      "verdicts": {
+        "falsified": 25
+      },
+      "expected_findings": [
+        "LEAK-BEHAVIOURAL"
+      ],
+      "expected_hits": {
+        "LEAK-BEHAVIOURAL": 25
+      },
+      "mean_findings": 5.84
+    },
+    {
+      "label": "regime_fluke",
+      "has_edge": false,
+      "description": "an edge confined to one 20% window of the sample",
+      "replications": 25,
+      "flag_rate": 0.8,
+      "flag_rate_ci": [
+        0.6086866446346177,
+        0.9113954589934752
+      ],
+      "correct_rate": 0.8,
+      "verdicts": {
+        "weakened": 20,
+        "not_falsified": 5
+      },
+      "expected_findings": [
+        "ROBUST-START-DATE-SENSITIVE"
+      ],
+      "expected_hits": {
+        "ROBUST-START-DATE-SENSITIVE": 21
+      },
+      "mean_findings": 2.84
+    },
+    {
+      "label": "cost_fragile",
+      "has_edge": false,
+      "description": "genuine gross edge, roughly daily turnover, dies inside realistic costs",
+      "replications": 25,
+      "flag_rate": 1.0,
+      "flag_rate_ci": [
+        0.8668035060468213,
+        1.0
+      ],
+      "correct_rate": 1.0,
+      "verdicts": {
+        "weakened": 4,
+        "falsified": 21
+      },
+      "expected_findings": [
+        "COST-BELOW-REALISTIC"
+      ],
+      "expected_hits": {
+        "COST-BELOW-REALISTIC": 25
+      },
+      "mean_findings": 4.0
+    },
+    {
+      "label": "levered_beta",
+      "has_edge": false,
+      "description": "constant 1.6x long the index, no timing at all",
+      "replications": 25,
+      "flag_rate": 0.88,
+      "flag_rate_ci": [
+        0.7004380781662651,
+        0.9583325864293191
+      ],
+      "correct_rate": 0.88,
+      "verdicts": {
+        "falsified": 20,
+        "not_falsified": 3,
+        "weakened": 2
+      },
+      "expected_findings": [
+        "ATTR-LEVERED-BETA"
+      ],
+      "expected_hits": {
+        "ATTR-LEVERED-BETA": 20
+      },
+      "mean_findings": 1.88
+    },
+    {
+      "label": "lottery_ticket",
+      "has_edge": false,
+      "description": "six enormous days supply the entire profit",
+      "replications": 25,
+      "flag_rate": 1.0,
+      "flag_rate_ci": [
+        0.8668035060468213,
+        1.0
+      ],
+      "correct_rate": 1.0,
+      "verdicts": {
+        "weakened": 25
+      },
+      "expected_findings": [
+        "ROBUST-TOP-DAY-DEPENDENT"
+      ],
+      "expected_hits": {
+        "ROBUST-TOP-DAY-DEPENDENT": 25
+      },
+      "mean_findings": 2.52
+    },
+    {
+      "label": "genuine_weak",
+      "has_edge": true,
+      "description": "a real, modest, low-turnover timing edge - the signal genuinely predicts the next return - that must survive the audit",
+      "replications": 25,
+      "flag_rate": 0.0,
+      "flag_rate_ci": [
+        0.0,
+        0.13319649395317873
+      ],
+      "correct_rate": 1.0,
+      "verdicts": {
+        "not_falsified": 25
+      },
+      "expected_findings": [],
+      "expected_hits": {},
+      "mean_findings": 1.8
+    }
+  ]
+}

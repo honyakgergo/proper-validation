@@ -1,0 +1,68 @@
+# Dual momentum with volatility targeting, audited honestly.
+#
+# Every component is taken from published work rather than found by searching
+# this data, and the full parameter grid is declared even though the reported
+# configuration is the conventional one.
+
+name: Dual momentum - sectors with an absolute filter and volatility targeting
+
+data:
+  risk_assets: [XLB, XLE, XLF, XLI, XLK, XLP, XLU, XLV, XLY]
+  defensive_assets: [IEF, GLD]
+  benchmark: SPY
+  start_date: "2005-01-01"
+  end_date: "2024-12-31"
+  source: yfinance
+  asset_class: us_large_cap_etf
+  frequency: daily
+  # Declared, because survivorship is the one question no tier can answer from
+  # the data. The audit records the answer and says so in the report.
+  universe_point_in_time: true
+  universe_note: >
+    The nine sector funds trade continuously from 1998; IEF and GLD from 2004,
+    which is why the sample starts in 2005 rather than earlier. No instrument
+    enters the universe mid-sample, so there is no survivorship or
+    inclusion-timing question to argue about.
+
+chosen_parameters:
+  lookback: 252
+  skip: 21
+  top_n: 3
+  vol_target: 0.10
+
+# How to re-run the strategy, which is what makes this audit Tier 2. The
+# risk and defensive asset lists are the function's own defaults and match the
+# universe declared above, so they need no restating here.
+strategy:
+  adapter: strategy.py:dual_momentum_positions
+
+search:
+  axes:
+    lookback: [126, 189, 252]
+    skip: [0, 21]
+    top_n: [2, 3, 4]
+    vol_target: [null, 0.10, 0.15]
+  n_trials: 54
+  note: >
+    54 configurations, declared in full. The reported one is the conventional
+    12-1 specification at a 10% volatility target - chosen because it is what
+    the literature uses, not because it scored best. The grid is declared
+    anyway, because "I picked the standard one" is a claim a reader cannot
+    verify.
+
+provenance:
+  - Jegadeesh and Titman (1993) - relative momentum
+  - Moskowitz, Ooi and Pedersen (2012) - time-series momentum
+  - Antonacci (2014) - dual momentum, absolute filter with a defensive leg
+  - Moreira and Muir (2017) - volatility-managed portfolios
+
+expectations:
+  # Written down before running the audit.
+  - The absolute filter should cut the drawdown sharply by stepping into bonds
+    through 2008, and that is the main thing it is expected to do.
+  - Volatility targeting should raise the Sharpe modestly and reduce the tails.
+  - A large positive momentum loading is expected and is not a finding.
+  - The open question is whether alpha survives FF5 plus momentum. Bonds and
+    gold are not in those factors, so some of any alpha may simply be exposure
+    to asset classes the model does not span - which the report should say
+    rather than claim as skill.

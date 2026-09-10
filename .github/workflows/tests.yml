@@ -1,0 +1,68 @@
+name: tests
+
+# The suite is offline and deterministic by construction - qv/data/loaders.py
+# is the only code that touches the network, and its tests are marked
+# `network` and deselected by default. So CI needs no secrets, no cached
+# fixtures and no vendor availability, and a red run means a real regression
+# rather than a flaky download.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor the package claims in pyproject.toml, and the version it
+        # is developed on. Claiming a floor without testing it is the kind of
+        # unbacked assertion this project exists to object to.
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        # Without the `data` extra: the statistical core must install and test
+        # with no network stack present, which is the claim being checked.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Tests
+        run: pytest -q
+
+      - name: Coverage
+        run: pytest -q --cov=qv --cov-report=term-missing
+
+      - name: The CLI is importable and its commands resolve
+        run: |
+          qv --help
+          qv explain SELECT-DEFLATED-SHARPE-FAILS
+          qv demo null_mined --observations 400 --out /tmp/qv_ci_demo
+          test -f /tmp/qv_ci_demo/report.html
+          test -f /tmp/qv_ci_demo/report.json
+
+      - name: The findings catalog the skill ships is not stale
+        # It is generated from qv/findings.py, so a drift here means someone
+        # added a finding and did not regenerate the reference the agent reads.
+        run: |
+          qv explain --markdown > /tmp/catalog.md
+          diff -u skill/references/findings_catalog.md /tmp/catalog.md
+
+      - name: The skill installs where Claude Code looks for it
+        run: |
+          qv skill install --target /tmp/qv_skill
+          test -f /tmp/qv_skill/SKILL.md
+          test -f /tmp/qv_skill/references/adapter_protocol.md
