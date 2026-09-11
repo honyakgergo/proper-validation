@@ -8,6 +8,7 @@ stable `--json` shapes, and output that says what could not be tested.
 from __future__ import annotations
 
 import json
+import re
 
 import numpy as np
 import pytest
@@ -155,6 +156,42 @@ class TestValidate:
             data["provenance"].pop("generated_utc")
             outs.append(data)
         assert outs[0] == outs[1]
+
+
+class TestVersion:
+    """`qv --version` is how a report's footer gets checked.
+
+    The footer names a commit and a source digest; running this in a clean
+    checkout of that commit is what turns "built from ab68694" from an
+    assertion into something a reader can verify.
+    """
+
+    def test_prints_the_engine_identity_and_exits_zero(self):
+        result = runner.invoke(app, ["--version"])
+        assert result.exit_code == 0
+        assert "proper_validation" in result.stdout
+        assert re.search(r"source [0-9a-f]{12}", result.stdout), result.stdout
+
+    def test_matches_what_a_report_records(self, returns_csv, tmp_path):
+        out = tmp_path / "v"
+        runner.invoke(app, ["validate", str(returns_csv), "--out", str(out),
+                            "--n-boot", "100"])
+        data = json.loads((out / "report.json").read_text(encoding="utf-8"))
+        assert data["provenance"]["source_digest"] in runner.invoke(
+            app, ["--version"]
+        ).stdout
+
+    def test_a_bare_invocation_still_shows_the_help(self):
+        """Adding a callback must not change what a bare `qv` does.
+
+        `--version` needs `invoke_without_command`, which is the kind of flag
+        that quietly changes how a group dispatches. The exit code here is
+        click's `no_args_is_help`, unchanged; what matters is that someone
+        typing `qv` still gets the list of subcommands.
+        """
+        result = runner.invoke(app, [])
+        assert "validate" in result.stdout
+        assert "Usage:" in result.stdout
 
 
 class TestScan:

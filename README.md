@@ -106,7 +106,7 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[data,dev]"
 
-pytest -q                        # ~950 tests, no network, about a minute
+pytest -q                        # ~990 tests, no network, about a minute
 qv demo null_mined               # audit a synthetic strategy with a known-zero edge
 ```
 
@@ -149,6 +149,11 @@ Contracts: [`adapter_protocol.md`](skill/references/adapter_protocol.md) ·
 **Also:** `qv scan notebook.ipynb` for a static look-ahead scan, `qv trials notebook.ipynb` to
 excavate a lower bound on your real trial count from execution counts and parameter literals, and
 `qv explain <FINDING-ID>` for what a finding means and what to do about it.
+
+Every report's footer names the engine that produced it — a version, the commit, and a digest over
+the package source — alongside the vintage of the data that went in. `qv --version` prints the same
+identity, so "was this report built from that commit?" is a question you can answer by running it
+in a clean checkout and comparing, rather than one you have to take on trust.
 
 There is deliberately **no `qv fix`**. Auto-remediating a methodological defect would mean the tool
 rewriting your research and implicitly blessing the result.
@@ -342,7 +347,7 @@ this tool exists to question. Also flagged.
 ## Development
 
 ```bash
-pytest -q                        # ~950 tests, no network
+pytest -q                        # ~990 tests, no network
 pytest -q -m "not slow"          # skips the coverage simulations
 pytest --cov=qv                  # 97% line coverage
 ```

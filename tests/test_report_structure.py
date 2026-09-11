@@ -411,6 +411,98 @@ class TestReadsCorrectly:
             assert "does not show that it does" in html or "not enough data" in html
 
 
+class TestTheFooterIdentifiesTheRun:
+    """The footer promises reproducibility; it has to say of what.
+
+    "Re-running with the same inputs and seed reproduces every number above"
+    was on the page long before anything named the engine or the data vintage,
+    which made it a promise with no referent. These read the footer the way a
+    person checking that claim would.
+    """
+
+    def test_the_engine_is_named(self, rendered):
+        _, html = rendered
+        footer = _flat(html).split("<footer>")[1]
+        assert re.search(r"commit [0-9a-f]{7}", footer), footer
+        assert re.search(r"source [0-9a-f]{12}", footer), footer
+
+    def test_the_reproducibility_claim_refers_to_the_source(self, rendered):
+        _, html = rendered
+        assert "same inputs and seed, on this same source" in _flat(html)
+
+    def test_the_identity_is_in_the_json_too(self, rendered):
+        """The HTML may never make a claim `report.json` cannot back."""
+        report, html = rendered
+        data = json.loads(render_json(report))
+        prov = data["provenance"]
+        assert prov["source_digest"] in html
+        assert prov["version"] and prov["source_digest"]
+
+    def test_vintages_are_shown_as_prose(self):
+        from qv.audit import AuditReport
+        from qv.types import Tier
+
+        report = AuditReport(name="v", tier=Tier.RETURNS, n_obs=100, periods_per_year=252)
+        report.provenance = {
+            "generated_utc": "now", "data_hash": "h", "seed": 0, "n_boot": 1,
+            "python": "3", "numpy": "2",
+            "data_vintages": {
+                "prices": "2025-03-01",
+                "factors": "2025-02-14",
+                "benchmark": "2025-03-01",
+                "factor_alignment": "5 sessions dropped at the join",
+            },
+        }
+        footer = _flat(render_html(report, [])).split("<footer>")[1]
+        assert "prices 2025-03-01" in footer
+        assert "Fama-French factors 2025-02-14" in footer
+        assert "benchmark 2025-03-01" in footer
+        assert "5 sessions dropped at the join" in footer
+        # `factor_alignment` is a variable name and its value is a sentence,
+        # not a date. Both would be wrong in the list of dates.
+        assert "factor_alignment" not in footer
+        assert "factor alignment 5 sessions" not in footer.lower()
+        assert "Fama-French files are periodically revised" in footer
+
+    def test_the_revision_note_matches_the_data_actually_used(self):
+        """No factors, no sentence about Dartmouth revising the factor files.
+
+        The reason a vintage matters has to be the reason that applies to this
+        report, or it reads as boilerplate and stops being read at all.
+        """
+        from qv.audit import AuditReport
+        from qv.types import Tier
+
+        report = AuditReport(name="v", tier=Tier.RETURNS, n_obs=100, periods_per_year=252)
+        report.provenance = {
+            "generated_utc": "now", "data_hash": "h", "seed": 0, "n_boot": 1,
+            "python": "3", "numpy": "2",
+            "data_vintages": {"prices": "2026-09-09"},
+        }
+        footer = _flat(render_html(report, [])).split("<footer>")[1]
+        assert "prices 2026-09-09" in footer
+        assert "Fama-French" not in footer
+        assert "restated after the fact" in footer
+
+    def test_a_report_with_no_vintages_says_nothing_about_them(self):
+        """The paired negative control.
+
+        A flat-file audit has no vintages - the researcher supplied the
+        series. The footer must then omit the sentence entirely rather than
+        print a label with nothing after it.
+        """
+        from qv.audit import AuditReport
+        from qv.types import Tier
+
+        report = AuditReport(name="v", tier=Tier.RETURNS, n_obs=100, periods_per_year=252)
+        report.provenance = {
+            "generated_utc": "now", "data_hash": "h", "seed": 0, "n_boot": 1,
+            "python": "3", "numpy": "2",
+        }
+        footer = _flat(render_html(report, [])).split("<footer>")[1]
+        assert "vintage" not in footer.lower()
+
+
 class TestDegradesWithoutSections:
     """A missing section must omit a sentence, not take the page down."""
 

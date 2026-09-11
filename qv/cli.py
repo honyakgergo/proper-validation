@@ -50,6 +50,48 @@ _SEVERITY_MARK = {
 }
 
 
+def _version_line() -> str:
+    """The same identity string the report footer carries.
+
+    Printed here so that "was this report built from that commit?" can be
+    answered by running the command in a clean checkout and comparing, rather
+    than being taken on trust.
+    """
+    import platform
+
+    from qv.provenance import source_identity
+
+    ident = source_identity()
+    parts = [f"proper_validation {ident['version']}"]
+    if ident["commit"] is not None:
+        parts.append(f"commit {ident['commit']}")
+    parts.append(f"source {ident['source_digest']}")
+    # ASCII only. This goes to a Windows console as readily as to a UTF-8 one,
+    # and a middot that renders as a replacement character helps nobody.
+    return ", ".join(parts) + (
+        f"\nPython {sys.version.split()[0]}, {platform.platform()}"
+    )
+
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False, "--version", is_eager=True, help="Print the engine identity and exit."
+    ),
+) -> None:
+    # No docstring: the help text lives on the Typer app above, and a second
+    # copy here would be a second thing to keep in step.
+    # `invoke_without_command` is what lets this run at all: without it click
+    # rejects `qv --version` as a missing command before the callback is
+    # reached. A bare `qv` is still click's business - `no_args_is_help` on the
+    # app catches it earlier than this and prints the help.
+    del ctx
+    if version:
+        typer.echo(_version_line())
+        raise typer.Exit()
+
+
 
 def _repo_root() -> Path | None:
     """The source checkout this package was installed from, if there is one.

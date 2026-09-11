@@ -249,6 +249,13 @@ def main() -> int:
         )
     )
 
+    # This driver builds its inputs directly rather than going through
+    # `audit_from_manifest`, so the vintage has to be handed over by hand. It
+    # matters more here than anywhere: the whole demonstration rests on real
+    # SPY prices over a pinned window, and a reader who refetches a revised
+    # history is not reproducing this number.
+    report.provenance["data_vintages"] = {"prices": cached.vintage}
+
     html_path, json_path = write_report(report, args.out, returns=trials[:, best])
     print(f"\nVerdict: {report.verdict.label.upper()}")
     for finding in report.findings_by_severity():

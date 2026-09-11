@@ -59,10 +59,13 @@ desktop.ini
 # Notebooks
 .ipynb_checkpoints/
 
-# Working notes. The original design document and the running session handoff
-# are how this got built, not part of what it is - they are kept locally and
-# deliberately not published. CLAUDE.md is different and is committed: it is
+# Working notes. The original design document, the running session handoff and
+# the internal status are how this got built, not part of what it is - they are
+# kept locally and deliberately not published. STATUS.md in particular records
+# where the project stands and what is left, which dates fast and would be a
+# liability to publish half-true. CLAUDE.md is different and is committed: it is
 # forward-looking guidance for working on the source, not a record of how the
 # source came to be.
 PLAN.md
 PROGRESS.md
+STATUS.md

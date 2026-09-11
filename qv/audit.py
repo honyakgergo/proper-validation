@@ -41,6 +41,7 @@ from qv.engine import (
     universe_coverage,
 )
 from qv.leakage.perturbation import perturbation_test
+from qv.provenance import source_identity
 from qv.robustness.parameters import plateau_ratio
 from qv.robustness.randomization import matched_exposure_test, sign_flip_test
 from qv.robustness.regimes import trailing_volatility, volatility_regime_split
@@ -1087,5 +1088,9 @@ def run_audit(inputs: AuditInputs) -> AuditReport:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "numpy": np.__version__,
+        # Which engine produced this. The footer has always promised that the
+        # same inputs and seed reproduce every number, and without these the
+        # promise names no code for the reader to re-run.
+        **source_identity(),
     }
     return report

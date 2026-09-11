@@ -857,12 +857,16 @@ it would exist.</p>
   {% else %}not declared. Survivorship leaves no trace in a return series, so this question stays
      open.{% endif %}
   {% if data.universe_note %} {{ data.universe_note }}{% endif %}</p>
-  <p>Generated {{ p.generated_utc }} by <code>proper_validation</code>.
+  <p>Generated {{ p.generated_utc }} by <code>proper_validation</code>
+     {%- if engine %} {{ engine }}{% endif %}.
      Data hash <code>{{ p.data_hash }}</code> &middot; seed {{ p.seed }} &middot;
      {{ p.n_boot }} bootstrap resamples &middot; Python {{ p.python }} &middot;
      numpy {{ p.numpy }}.</p>
-  <p>Re-running with the same inputs and seed reproduces every number above.
-     <code>report.json</code> beside this file carries every figure shown here.</p>
+  {% for sentence in vintages %}
+  <p>{{ sentence }}</p>
+  {% endfor %}
+  <p>Re-running with the same inputs and seed, on this same source, reproduces every number
+     above. <code>report.json</code> beside this file carries every figure shown here.</p>
 </footer>
 </main></body></html>
 """
@@ -920,6 +924,83 @@ def _performance_rows(strategy: dict, benchmark: dict | None, fmt, pct) -> list[
             "difference": difference,
         })
     return rows
+
+
+#: How the provenance keys `qv.pipeline` records are named to a reader. A
+#: footer is prose, and `factor_alignment` is a variable name, not English.
+_VINTAGE_LABELS = {
+    "prices": "prices",
+    "factors": "Fama-French factors",
+    "benchmark": "benchmark",
+}
+
+
+def _engine_identity(provenance: dict) -> str:
+    """"0.1.0, commit ab68694, source cf2fa6f9eba5", or "" if unrecorded.
+
+    Each part is optional on its own: a wheel install has no commit to read,
+    and a checkout that was never installed has no version. An older report
+    rendered before any of this existed still has to render.
+    """
+    parts = []
+    if provenance.get("version"):
+        parts.append(str(provenance["version"]))
+    if provenance.get("commit"):
+        parts.append(f"commit {provenance['commit']}")
+    if provenance.get("source_digest"):
+        parts.append(f"source {provenance['source_digest']}")
+    return ", ".join(parts)
+
+
+def _vintage_sentences(provenance: dict) -> list[str]:
+    """The data vintages, as prose, or an empty list when there are none.
+
+    `qv/data/loaders.py` has always said the vintage "is recorded and surfaced
+    in the report footer", and until this existed it reached `report.json` and
+    stopped there. It is the fact a reader needs in order to judge whether
+    their own re-run should match: Dartmouth revises the factor files, and a
+    number reproduced from a different vintage is not the same number.
+
+    A flat-file audit has no vintages at all - the researcher supplied the
+    series - and then the footer says nothing rather than printing a label
+    with nothing after it.
+    """
+    vintages = provenance.get("data_vintages") or {}
+    if not vintages:
+        return []
+
+    dated = [
+        f"{_VINTAGE_LABELS[key]} {vintages[key]}"
+        for key in _VINTAGE_LABELS
+        if vintages.get(key)
+    ]
+    # Anything the label map does not know about is still someone's data, so
+    # it is shown rather than dropped - just without a hand-written name.
+    dated += [
+        f"{key.replace('_', ' ')} {value}"
+        for key, value in vintages.items()
+        if key not in _VINTAGE_LABELS and key != "factor_alignment" and value
+    ]
+
+    sentences = []
+    if dated:
+        why = "A number reproduced from a different vintage is not the same number"
+        # Name the revision the reader is most likely to hit, but only when it
+        # applies: quoting Dartmouth's revision policy under a report with no
+        # factors in it is a non-sequitur.
+        why += (
+            " - the Fama-French files are periodically revised."
+            if vintages.get("factors")
+            else ", and a price history can be restated after the fact."
+        )
+        sentences.append("Data vintages: " + ", ".join(dated) + ". " + why)
+    # Not a date. Its value is already a sentence about how many sessions the
+    # factor join dropped, so it gets its own clause instead of joining a list
+    # of dates where it would read as one.
+    alignment = vintages.get("factor_alignment")
+    if alignment:
+        sentences.append(f"Factor alignment: {alignment}.")
+    return sentences
 
 
 def render_html(
@@ -996,6 +1077,8 @@ def render_html(
     return template.render(
         r=report,
         p=report.provenance,
+        engine=_engine_identity(report.provenance),
+        vintages=_vintage_sentences(report.provenance),
         s=_Dot(sections.get("sharpe", {})),
         b=_Dot(sections.get("bootstrap", {})),
         sel=_Dot(sections["selection"]) if "selection" in sections else None,

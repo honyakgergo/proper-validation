@@ -310,6 +310,17 @@ class TestRunAudit:
         p = run_audit(simple_inputs).provenance
         assert set(p) >= {"data_hash", "seed", "n_boot", "python", "numpy", "generated_utc"}
 
+    def test_provenance_names_the_engine_that_produced_it(self, simple_inputs):
+        """A report that cannot be tied to its code is asking to be trusted.
+
+        The footer's reproducibility promise has no referent without these,
+        and `report.json` is where the HTML's claims have to be backed.
+        """
+        p = run_audit(simple_inputs).to_dict()["provenance"]
+        assert set(p) >= {"version", "commit", "source_digest"}
+        assert p["version"]
+        assert len(p["source_digest"]) == 12
+
     def test_data_hash_changes_with_the_data(self, simple_inputs):
         first = run_audit(simple_inputs).provenance["data_hash"]
         simple_inputs.returns = np.asarray(simple_inputs.returns) * 1.01

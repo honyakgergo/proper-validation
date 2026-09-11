@@ -68,14 +68,20 @@
     }
   ],
   "provenance": {
-    "generated_utc": "2026-09-10T16:22:35+00:00",
+    "generated_utc": "2026-09-11T14:34:02+00:00",
     "data_hash": "0eab6447855bc238",
     "seed": 0,
     "n_boot": 2000,
     "confidence": 0.95,
     "python": "3.12.4",
     "platform": "Windows-11-10.0.26200-SP0",
-    "numpy": "2.5.3"
+    "numpy": "2.5.3",
+    "version": "0.1.0",
+    "commit": "ab68694",
+    "source_digest": "fde003c7e130",
+    "data_vintages": {
+      "prices": "2026-09-09"
+    }
   },
   "conventions": {
     "risk_free_supplied": false,
