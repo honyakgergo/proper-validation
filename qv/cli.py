@@ -26,6 +26,7 @@ clearer than running them together.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -162,12 +163,21 @@ def _echo_err(message: str) -> None:
     typer.echo(message, err=True)
 
 
-def load_series(path: Path, column: str | None = None) -> np.ndarray:
+def load_series(
+    path: Path, column: str | None = None, *, selector: str = "--column"
+) -> np.ndarray:
     """Read a 1-D numeric series from CSV, Parquet or a plain text column.
 
     Deliberately forgiving about layout and strict about content: a file that
     parses to something non-numeric is an error, not a silently-coerced array
     of NaNs.
+
+    ``selector`` names the option that can disambiguate an ambiguous file, and
+    exists because ``--column`` only applies to the returns argument. Telling
+    someone who passed a two-column ``--benchmark`` to "name one with
+    --column" sends them to a flag that would rename a column of a different
+    file; pass ``selector=None`` for those and the message says what is
+    actually needed instead.
     """
     import pandas as pd
 
@@ -194,13 +204,61 @@ def load_series(path: Path, column: str | None = None) -> np.ndarray:
             for candidate in ("returns", "return", "ret", "pnl", "value"):
                 if candidate in numeric.columns:
                     return numeric[candidate].to_numpy(dtype=float)
+            remedy = (
+                f"name one with {selector}"
+                if selector
+                else "supply a file holding a single numeric series"
+            )
             raise typer.BadParameter(
                 f"{path.name} has {numeric.shape[1]} numeric columns "
-                f"({list(numeric.columns)}); name one with --column"
+                f"({list(numeric.columns)}); {remedy}"
             )
         series = numeric.iloc[:, 0]
 
     return series.to_numpy(dtype=float)
+
+
+def load_positions(path: Path) -> np.ndarray:
+    """Read a position series or a whole book of weights.
+
+    One numeric column is a single-instrument timing strategy and comes back
+    1-D; two or more are a cross-sectional book and come back as ``(T, N)``.
+    Both shapes are what `qv.costs.models.as_position_matrix` already accepts,
+    and a book is the shape `adapter_protocol.md` calls normal - so reading
+    this with the returns loader, as this used to, refused the ordinary case
+    and told the user to name a single column. Complying would have measured
+    one instrument's turnover and labelled it the portfolio's, which is worse
+    than the error it replaced.
+
+    An unnamed integer index column is dropped rather than counted as an
+    instrument: ``DataFrame.to_csv()`` on a default RangeIndex writes one, and
+    a monotonically rising "weight" would corrupt turnover without ever
+    looking wrong.
+    """
+    import pandas as pd
+
+    if not path.exists():
+        raise typer.BadParameter(f"no such file: {path}")
+
+    frame = (
+        pd.read_parquet(path)
+        if path.suffix.lower() in (".parquet", ".pq")
+        else pd.read_csv(path)
+    )
+    numeric = frame.select_dtypes("number")
+
+    for name in list(numeric.columns):
+        if not re.fullmatch(r"Unnamed: \d+", str(name)):
+            continue
+        values = numeric[name].to_numpy()
+        if np.array_equal(values, np.arange(len(values))):
+            numeric = numeric.drop(columns=[name])
+
+    if numeric.shape[1] == 0:
+        raise typer.BadParameter(f"{path.name} contains no numeric column")
+    if numeric.shape[1] == 1:
+        return numeric.iloc[:, 0].to_numpy(dtype=float)
+    return numeric.to_numpy(dtype=float)
 
 
 def load_matrix(path: Path) -> np.ndarray:
@@ -245,7 +303,7 @@ def validate(
         "'engine' (is the backtest trustworthy?), or 'full' for both.",
     ),
     column: str | None = typer.Option(None, help="Which column holds the returns."),
-    positions: Path | None = typer.Option(None, help="Position series. Unlocks turnover, costs and break-even cost."),
+    positions: Path | None = typer.Option(None, help="Position series, or a book of weights with one column per instrument. Unlocks turnover, costs and break-even cost."),
     asset_returns: Path | None = typer.Option(
         None, help="Returns of the traded instrument, for the matched-exposure test."
     ),
@@ -327,9 +385,15 @@ def validate(
             returns=load_series(returns, column),
             periods_per_year=periods_per_year,
             name=name,
-            positions=None if positions is None else load_series(positions),
-            asset_returns=None if asset_returns is None else load_series(asset_returns),
-            benchmark_returns=None if benchmark is None else load_series(benchmark),
+            positions=None if positions is None else load_positions(positions),
+            asset_returns=(
+                None
+                if asset_returns is None
+                else load_series(asset_returns, selector=None)
+            ),
+            benchmark_returns=(
+                None if benchmark is None else load_series(benchmark, selector=None)
+            ),
             asset_class=asset_class,
             n_trials=trials,
             trial_returns=None if trial_matrix is None else load_matrix(trial_matrix),

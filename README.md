@@ -110,7 +110,7 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[data,dev]"
 
-pytest -q                        # 1001 tests, no network, about a minute
+pytest -q                        # 1010 tests, no network, about a minute
 qv demo null_mined               # audit a synthetic strategy with a known-zero edge
 ```
 
@@ -148,6 +148,9 @@ cached, so a re-run resumes.
 ```bash
 qv validate returns.csv --trials 40 --positions positions.csv --asset-class us_large_cap_etf
 ```
+
+`--positions` takes one column for a single-instrument strategy or a whole book of weights, one
+column per instrument, for a cross-sectional one. It is what turnover and cost are derived from.
 
 `--trials` is how many configurations you examined, *including the ones you threw away*. It is the
 most under-reported number in backtesting and the key input to the deflated Sharpe ratio. Overstate
@@ -375,7 +378,7 @@ this tool exists to question. Also flagged.
 ## Development
 
 ```bash
-pytest -q                        # 1001 tests, no network
+pytest -q                        # 1010 tests, no network
 pytest -q -m "not slow"          # skips the coverage simulations
 pytest --cov=qv                  # 97% line coverage
 ```

@@ -160,6 +160,11 @@ qv validate returns.csv \
   --out audit/
 ```
 
+`--positions` takes either shape: one column for a strategy timing a single instrument, or a book
+of weights with one column per instrument for a cross-sectional strategy. Pass the whole book. It
+is what turnover, cost and break-even are derived from, and a single column of a book measures one
+instrument's trading and reports it as the portfolio's.
+
 Supply `--trial-matrix trials.csv` when you can reconstruct the search — a `(T, N)` matrix with one
 column per configuration examined. It unlocks PBO and lets the empirical null measure how
 correlated the trials actually were, which the closed form assumes away.

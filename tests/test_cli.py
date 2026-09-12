@@ -12,9 +12,10 @@ import re
 
 import numpy as np
 import pytest
+import typer
 from typer.testing import CliRunner
 
-from qv.cli import app, load_matrix, load_series
+from qv.cli import app, load_matrix, load_positions, load_series
 
 runner = CliRunner()
 
@@ -92,6 +93,118 @@ class TestLoaders:
         gen = np.random.default_rng(4)
         pd.DataFrame(gen.standard_normal((100, 5)) * 0.01).to_csv(path, index=False)
         assert load_matrix(path).shape == (100, 5)
+
+
+class TestAmbiguousColumnMessage:
+    """An error must name a remedy that exists for the file it is about.
+
+    `--column` renames a column of the *returns* argument only. Telling someone
+    who passed a two-column `--benchmark` to use it sends them to a flag that
+    cannot help them.
+    """
+
+    @staticmethod
+    def _two_columns(tmp_path):
+        import pandas as pd
+
+        path = tmp_path / "two.csv"
+        pd.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]}).to_csv(path, index=False)
+        return path
+
+    def test_the_returns_argument_still_points_at_column(self, tmp_path):
+        with pytest.raises(typer.BadParameter, match="name one with --column"):
+            load_series(self._two_columns(tmp_path))
+
+    def test_an_argument_column_cannot_reach_says_something_else(self, tmp_path):
+        """The negative control for the message itself."""
+        with pytest.raises(typer.BadParameter) as excinfo:
+            load_series(self._two_columns(tmp_path), selector=None)
+        message = str(excinfo.value)
+        assert "single numeric series" in message
+        assert "--column" not in message
+
+
+class TestLoadPositions:
+    """A book of weights is the ordinary shape, not an edge case.
+
+    This loader exists because `--positions` used to be read with the returns
+    loader, which refuses anything wider than one column. Every cross-sectional
+    strategy the rest of the tool is built around has a wider one.
+    """
+
+    @staticmethod
+    def _book(tmp_path, name="book.csv", index=False):
+        import pandas as pd
+
+        gen = np.random.default_rng(11)
+        frame = pd.DataFrame(
+            gen.integers(0, 2, (300, 4)).astype(float) / 4.0,
+            columns=["A", "B", "C", "D"],
+        )
+        path = tmp_path / name
+        frame.to_csv(path, index=index)
+        return path, frame
+
+    def test_a_single_column_still_comes_back_flat(self, positions_csv):
+        """The timing-strategy case that already worked must keep working."""
+        loaded = load_positions(positions_csv)
+        assert loaded.ndim == 1
+        assert loaded.shape == (600,)
+
+    def test_a_book_of_weights_is_read_as_a_matrix(self, tmp_path):
+        path, frame = self._book(tmp_path)
+        loaded = load_positions(path)
+        assert loaded.shape == (300, 4)
+        assert np.allclose(loaded, frame.to_numpy())
+
+    def test_an_unnamed_range_index_is_not_an_instrument(self, tmp_path):
+        """`to_csv()` on a default RangeIndex writes one, and a monotonically
+        rising column would corrupt turnover while looking like a weight."""
+        path, frame = self._book(tmp_path, "indexed.csv", index=True)
+        loaded = load_positions(path)
+        assert loaded.shape == (300, 4), "the index column must not become a fifth asset"
+        assert np.allclose(loaded, frame.to_numpy())
+
+    def test_a_named_numeric_column_is_kept(self, tmp_path):
+        """Only an unnamed 0..n-1 column is dropped. A real instrument whose
+        weights happen to rise must survive."""
+        import pandas as pd
+
+        path = tmp_path / "ramp.csv"
+        pd.DataFrame(
+            {"A": np.arange(50, dtype=float), "B": np.ones(50)}
+        ).to_csv(path, index=False)
+        assert load_positions(path).shape == (50, 2)
+
+    def test_a_file_with_no_numbers_is_an_error(self, tmp_path):
+        import pandas as pd
+
+        path = tmp_path / "words.csv"
+        pd.DataFrame({"a": ["x", "y"], "b": ["p", "q"]}).to_csv(path, index=False)
+        with pytest.raises(typer.BadParameter, match="no numeric column"):
+            load_positions(path)
+
+    def test_missing_file(self, tmp_path):
+        with pytest.raises(typer.BadParameter, match="no such file"):
+            load_positions(tmp_path / "absent.csv")
+
+    def test_a_book_gives_different_turnover_than_any_one_column(self, tmp_path):
+        """The negative control, and the reason this bug mattered.
+
+        The old behaviour asked the user to name a single column. Had they
+        complied, the audit would have measured one instrument's turnover and
+        reported it as the portfolio's - a plausible number rather than an
+        error. So it is not enough that a book loads: it must produce turnover
+        that no single column of it produces.
+        """
+        from qv.costs.models import average_turnover
+
+        path, frame = self._book(tmp_path)
+        book = average_turnover(load_positions(path))
+        singles = [average_turnover(frame[c].to_numpy()) for c in frame.columns]
+        assert all(
+            abs(book - one) > 1e-9 for one in singles
+        ), f"book turnover {book} coincides with a single column {singles}"
 
 
 class TestValidate:
