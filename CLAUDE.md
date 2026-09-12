@@ -80,7 +80,7 @@ commands (`status`, `diff`, `log`) are fine.
 ## Before you hand work back
 
 ```bash
-pytest -q                      # must stay green; 1010 tests, no network
+pytest -q                      # must stay green; 1062 tests, no network
 pytest -q -m "not slow"        # faster, skips the coverage simulations
 pytest --cov=qv                # coverage should not fall
 ```

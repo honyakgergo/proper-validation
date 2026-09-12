@@ -140,7 +140,9 @@ no trace. Interview the researcher and revise upward:
 
 - How many variants did you try and discard before this one?
 - Did you look at out-of-sample results before finalising the parameters?
-- Where did the universe list come from, and when was it constructed?
+- Where did the universe list come from, and when was it constructed? Record the answer as
+  `data.universe_point_in_time`; it is never inferable from the data. If they have a point-in-time
+  constituent list, `data.membership_frame` turns that declaration into a measurement.
 - Did you change the date range after seeing results?
 - How many times did you re-run the whole notebook with different settings?
 

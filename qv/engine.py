@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from qv.findings import make_finding
 from qv.leakage.perturbation import _as_signals
@@ -420,6 +421,21 @@ class UniverseCoverage:
     last_index: tuple[int, ...]
     n_obs: int
     labels: tuple[str, ...] = field(default_factory=tuple)
+    #: Late entrants a membership list accounts for: the name genuinely joined
+    #: the index then, so trading it from then is correct rather than hindsight.
+    #: This is a false-positive *removal*, and it is the most valuable thing a
+    #: membership list buys this test.
+    explained_late: tuple[str, ...] = field(default_factory=tuple)
+    #: Instruments with price history reaching back before they were members.
+    #: Sharper than the sample-start proxy: the frame could have traded them
+    #: while the index had not yet included them.
+    traded_before_membership: tuple[str, ...] = field(default_factory=tuple)
+    #: When each instrument was an index member, as positions into the sample,
+    #: or ``-1`` where the membership list does not mention it. Held here rather
+    #: than computed in the chart so the drawn values and the reported values
+    #: are the same numbers.
+    membership_first: tuple[int, ...] = field(default_factory=tuple)
+    membership_last: tuple[int, ...] = field(default_factory=tuple)
 
     @property
     def coverage(self) -> tuple[float, ...]:
@@ -446,17 +462,38 @@ class UniverseCoverage:
         )
 
     @property
+    def unexplained_late(self) -> tuple[str, ...]:
+        """Late entrants a membership list does *not* account for.
+
+        The raw `late_entrants` measurement is deliberately left untouched by
+        membership. If an optional input silently redefined it, the same finding
+        id would mean different things in two runs of the same audit, and
+        `ragged_total` in the JSON is what lets a reader see that a list muted
+        something rather than that nothing was there.
+        """
+        explained = set(self.explained_late)
+        return tuple(n for n in self.late_entrants if n not in explained)
+
+    @property
     def complete(self) -> bool:
-        return not self.late_entrants and not self.early_exits
+        return not (
+            self.unexplained_late or self.early_exits or self.traded_before_membership
+        )
 
     def to_finding(self) -> Finding | None:
         if self.complete:
             return None
         parts = []
-        if self.late_entrants:
+        if self.unexplained_late:
             parts.append(
-                f"{len(self.late_entrants)} instrument(s) start after the sample "
-                f"does ({', '.join(self.late_entrants[:6])})"
+                f"{len(self.unexplained_late)} instrument(s) start after the sample "
+                f"does ({', '.join(self.unexplained_late[:6])})"
+            )
+        if self.traded_before_membership:
+            parts.append(
+                f"{len(self.traded_before_membership)} have price history from "
+                "before they were index members "
+                f"({', '.join(self.traded_before_membership[:6])})"
             )
         if self.early_exits:
             parts.append(
@@ -474,7 +511,9 @@ class UniverseCoverage:
             ),
             severity=Severity.MEDIUM,
             evidence={
-                "late_entrants": list(self.late_entrants),
+                "late_entrants": list(self.unexplained_late),
+                "explained_by_membership": list(self.explained_late),
+                "traded_before_membership": list(self.traded_before_membership),
                 "early_exits": list(self.early_exits),
                 "n_obs": self.n_obs,
             },
@@ -487,18 +526,31 @@ class UniverseCoverage:
             "first_index": list(self.first_index),
             "last_index": list(self.last_index),
             "late_entrants": list(self.late_entrants),
+            "unexplained_late": list(self.unexplained_late),
+            "explained_by_membership": list(self.explained_late),
+            "traded_before_membership": list(self.traded_before_membership),
+            "membership_first": list(self.membership_first),
+            "membership_last": list(self.membership_last),
+            "ragged_total": len(self.late_entrants) + len(self.early_exits),
+            "ragged_explained_by_membership": len(self.explained_late),
             "early_exits": list(self.early_exits),
             "complete": self.complete,
             "n_obs": self.n_obs,
         }
 
 
-def universe_coverage(prices, labels=None) -> UniverseCoverage:
+def universe_coverage(prices, labels=None, membership=None) -> UniverseCoverage:
     """Which instruments cover the whole sample, and which do not.
 
     Pass the frame *before* any common-calendar alignment. Dropping the ragged
     rows first is what makes a universe look clean, so a coverage check run
     after alignment can only ever report that everything is fine.
+
+    ``membership``, when given, does not change what raggedness means - it
+    explains individual edges. A name whose price history starts when it joined
+    the index was not chosen with hindsight, and clearing it is the point. The
+    raw counts stay in the result either way so that a bad list muting a real
+    finding is visible rather than silent.
     """
     frame = getattr(prices, "to_numpy", None)
     if frame is None:
@@ -533,10 +585,56 @@ def universe_coverage(prices, labels=None) -> UniverseCoverage:
     elif hasattr(prices, "index"):
         index_labels = tuple(str(x)[:10] for x in prices.index)
 
+    explained: list[str] = []
+    early_traded: list[str] = []
+    member_first: list[int] = []
+    member_last: list[int] = []
+    if membership is not None and hasattr(prices, "index"):
+        dates = prices.index
+        spells = membership.frame
+        for position, name in enumerate(names):
+            rows = spells[spells["ticker"] == name.upper()]
+            if rows.empty:
+                # -1 rather than 0: a name the list does not mention has no
+                # membership span, which is a different thing from one that
+                # joined on day one.
+                member_first.append(-1)
+                member_last.append(-1)
+                continue
+            joined = rows["start_date"].min()
+            left = rows["end_date"].max()
+            in_sample = int(np.searchsorted(dates, joined, side="left"))
+            member_first.append(min(in_sample, n - 1))
+            if rows["end_date"].isna().any() or pd.isna(left):
+                member_last.append(n - 1)
+            else:
+                member_last.append(
+                    max(0, min(n - 1, int(np.searchsorted(dates, left, side="right")) - 1))
+                )
+            starts = dates[first[position]]
+            if joined < starts:
+                # It was already a member before the data begins, so there is a
+                # stretch where the index held it and the backtest could not.
+                # That is a hole in the data, not something membership excuses.
+                continue
+            if first[position] > 0:
+                # The name joined the index at or after its history starts, so
+                # entering the universe late is the index's doing rather than
+                # the researcher's.
+                explained.append(name)
+            if joined > starts:
+                # History reaching back before membership: the frame could have
+                # traded it while the index had not yet included it.
+                early_traded.append(name)
+
     return UniverseCoverage(
         instruments=names,
         first_index=tuple(first),
         last_index=tuple(last),
         n_obs=n,
         labels=index_labels,
+        explained_late=tuple(explained),
+        traded_before_membership=tuple(early_traded),
+        membership_first=tuple(member_first),
+        membership_last=tuple(member_last),
     )

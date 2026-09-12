@@ -36,6 +36,7 @@ import pandas as pd
 from qv.adapter import frame_adapter
 from qv.audit import AuditInputs, AuditReport, run_audit
 from qv.data.loaders import (
+    read_membership_frame,
     load_fama_french,
     load_prices,
     load_universe,
@@ -204,6 +205,16 @@ def audit_from_manifest(
         raw_prices = universe.unaligned
         vintages["prices"] = universe.vintage
 
+    # Parsed here so a malformed list fails before the strategy runs, but
+    # *evaluated* later against the trimmed window - see the AuditInputs call.
+    # Measuring against any window other than the one the report describes
+    # answers a question the reader is never shown.
+    membership = None
+    if data.membership_frame is not None:
+        membership_path = manifest.resolve(data.membership_frame)
+        membership = read_membership_frame(membership_path, data.membership_index)
+        vintages["membership"] = membership.source
+
     # Factors are loaded before the strategy runs, so the sample can be
     # narrowed to where every input exists *before* anything is computed on it.
     # Ken French publishes on a lag, so the last sessions of the factor file
@@ -288,6 +299,12 @@ def audit_from_manifest(
             factors=factors,
             factor_names=factor_names,
             risk_free=risk_free,
+            membership=membership,
+            #: The post-trim window, which is what the rest of the report
+            #: describes. `prices` has already been narrowed by the factor
+            #: alignment above.
+            sample_window=(prices.index[0], prices.index[-1]),
+            universe_names=list(prices.columns),
             universe_point_in_time=data.universe_point_in_time,
             universe_note=(
                 None

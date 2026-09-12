@@ -850,12 +850,19 @@ it would exist.</p>
 
 <footer>
   <p>Universe:
-  {% if data.universe_point_in_time is true %}declared point-in-time - it was not assembled from
-     present-day membership, so nothing entered it with hindsight.
-  {% elif data.universe_point_in_time is false %}declared as present-day membership, which is
+  {% if data.survivorship_basis == 'measured' %}measured against a point-in-time membership list.
+     The traded universe is missing {{ data.measurement.n_missing_exited }} of the
+     {{ data.measurement.exits_total }} name(s) that left the index during the covered window
+     {%- if data.measurement.covered_fraction_of_sample < 0.999 %}, over the
+     {{ '%.0f'|format(data.measurement.covered_fraction_of_sample * 100) }}% of the sample the list
+     covers{% endif %}. This counts what was excluded, not what it would have returned.
+  {% elif data.survivorship_basis == 'declared' and data.universe_point_in_time is true %}declared
+     point-in-time - it was not assembled from present-day membership, so nothing entered it with
+     hindsight. Declared, not measured.
+  {% elif data.survivorship_basis == 'declared' %}declared as present-day membership, which is
      survivorship-biased by construction - see the finding above.
-  {% else %}not declared. Survivorship leaves no trace in a return series, so this question stays
-     open.{% endif %}
+  {% else %}not established. {{ data.survivorship_basis_reason or 'Survivorship leaves no trace in
+     a return series, so this question stays open.' }}{% endif %}
   {% if data.universe_note %} {{ data.universe_note }}{% endif %}</p>
   <p>Generated {{ p.generated_utc }} by <code>proper_validation</code>
      {%- if engine %} {{ engine }}{% endif %}.

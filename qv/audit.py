@@ -92,6 +92,14 @@ class AuditInputs:
     # quietly assuming the universe was clean.
     universe_point_in_time: bool | None = None
     universe_note: str | None = None
+    #: A parsed `qv.data.membership.Membership`, never a path - the engine
+    #: stays I/O-free. Present, survivorship is measured rather than declared.
+    membership: Any | None = None
+    #: The window the report describes, for the membership comparison. Measuring
+    #: against any other window answers a question the reader is never shown.
+    sample_window: tuple[Any, Any] | None = None
+    #: The traded universe's names, in declared order.
+    universe_names: Any | None = None
 
     # Selection bias
     n_trials: int | None = None
@@ -203,6 +211,140 @@ class AuditReport:
 
 
 
+def _run_survivorship(inputs: AuditInputs, report: AuditReport, findings: list) -> None:
+    """Was the universe assembled with hindsight?
+
+    Three bases, and they must stay distinguishable in ``report.json``. If this
+    function only ever appended a finding, then a refused membership file, a file
+    describing the wrong period, an exception, and a genuinely clean universe
+    would all produce the same visible output: nothing at all. So
+    ``survivorship_basis`` is always written, and "clean" and "could not tell"
+    are never the same string.
+    """
+    section: dict[str, Any] = {
+        "universe_point_in_time": inputs.universe_point_in_time,
+        "universe_note": inputs.universe_note,
+        "survivorship_basis": "not_tested",
+        "survivorship_basis_reason": "not declared and not measured",
+    }
+    report.sections["data"] = section
+
+    measurement = None
+    if inputs.membership is not None and inputs.sample_window is not None:
+        from qv.data.membership import measure_survivorship
+
+        section["membership"] = inputs.membership.to_dict()
+        try:
+            measurement = measure_survivorship(
+                inputs.membership,
+                list(inputs.universe_names or ()),
+                inputs.sample_window[0],
+                inputs.sample_window[1],
+            )
+        except ValueError as exc:
+            section["survivorship_basis_reason"] = str(exc)
+            report.not_tested.append(f"Survivorship: {exc}")
+
+    if measurement is not None:
+        section["measurement"] = measurement.to_dict()
+        findings.extend(measurement.to_findings())
+
+        if measurement.looks_like_a_snapshot:
+            # The file cannot support a clean verdict, so do not let one be
+            # inferred from the absence of a finding.
+            section["survivorship_basis"] = "not_tested"
+            section["survivorship_basis_reason"] = (
+                "the membership list records no departures, so it cannot distinguish a "
+                "complete universe from a list of survivors"
+            )
+            report.not_tested.append(
+                "Survivorship: the membership list supplied records no removals, so it "
+                "cannot tell a complete universe from a list of today's members. See "
+                "DATA-MEMBERSHIP-NOT-POINT-IN-TIME."
+            )
+        else:
+            section["survivorship_basis"] = "measured"
+            section["survivorship_basis_reason"] = (
+                f"measured against {inputs.membership.source}"
+            )
+            if measurement.covered_fraction_of_sample < 0.999:
+                report.not_tested.append(
+                    "Survivorship before "
+                    f"{measurement.covered_start.date()}: the membership list starts "
+                    "after the sample does, so it speaks to "
+                    f"{measurement.covered_fraction_of_sample:.0%} of the audited "
+                    "window and says nothing about the rest. Every membership count in "
+                    "this report describes the covered period only."
+                )
+            # Extent, not magnitude. True on every run that gets this far, and the
+            # one sentence that stops the count being read as a haircut.
+            report.not_tested.append(
+                "Size of the survivorship bias: the membership list says which names "
+                "were excluded, not what their returns would have been, so the count "
+                "bounds how much is missing and not how much the result is overstated. "
+                "That needs prices for delisted instruments."
+            )
+
+        # A declaration the data disproves is worse than an open question: the
+        # reader cannot tell which of the *other* declarations still hold, and the
+        # deflated Sharpe rests on one of them. Only this direction fires.
+        # Declaring `false` and measuring clean is over-caution rather than a
+        # defect, and a confession about how a list was built outranks a null
+        # result from a file that may cover only part of the window.
+        if inputs.universe_point_in_time is True and measurement.missing_exited:
+            findings.append(
+                make_finding(
+                    "DATA-DECLARATION-CONTRADICTED",
+                    detail=(
+                        "The universe was declared point-in-time, but "
+                        f"{len(measurement.missing_exited)} name(s) that left the index "
+                        "during the window are absent from it. The declaration and the "
+                        "membership list disagree, and the list is the one with evidence "
+                        "behind it."
+                    ),
+                    evidence={
+                        "declared": True,
+                        "missing_exited": list(measurement.missing_exited[:20]),
+                    },
+                )
+            )
+        return
+
+    # No usable measurement: fall back to the declaration.
+    if inputs.universe_point_in_time is False:
+        section["survivorship_basis"] = "declared"
+        section["survivorship_basis_reason"] = "declared by the manifest, not measured"
+        findings.append(
+            make_finding(
+                "DATA-SURVIVORSHIP",
+                detail=(
+                    "The universe was declared as built from present-day membership, so "
+                    "every instrument that failed, delisted or merged is missing from it. "
+                    "The result is an upper bound rather than an estimate, and no test "
+                    "below corrects for it. Supply a point-in-time membership list as "
+                    "`data.membership_frame` to replace this declaration with a count."
+                    + (f" Declared: {inputs.universe_note}" if inputs.universe_note else "")
+                ),
+                evidence={
+                    "universe_point_in_time": False,
+                    "universe_note": inputs.universe_note,
+                },
+            )
+        )
+    elif inputs.universe_point_in_time is None:
+        report.not_tested.append(
+            "Survivorship: the universe was not declared, so whether it was assembled "
+            "from present-day membership could not be checked. Declare "
+            "`universe_point_in_time`, or supply a point-in-time membership list as "
+            "`data.membership_frame` and it will be counted rather than declared."
+        )
+    else:
+        section["survivorship_basis"] = "declared"
+        section["survivorship_basis_reason"] = (
+            "declared point-in-time by the manifest, not measured"
+        )
+
+
 def _run_engine_suite(
     inputs: AuditInputs,
     report: AuditReport,
@@ -295,7 +437,7 @@ def _run_engine_suite(
     # -- Could the universe have been assembled with hindsight? -------------
     if inputs.raw_prices is not None:
         try:
-            coverage = universe_coverage(inputs.raw_prices)
+            coverage = universe_coverage(inputs.raw_prices, membership=inputs.membership)
             report.sections["universe_coverage"] = coverage.to_dict()
             report.chart_data["universe_coverage"] = coverage
             finding = coverage.to_finding()
@@ -452,36 +594,7 @@ def run_audit(inputs: AuditInputs) -> AuditReport:
 
     # -- Data provenance: survivorship (engine) -----------------------------
     if engine:
-        # Not detectable from a return series at any tier. Either the universe is
-        # declared or the question stays open, and an open question belongs in the
-        # section that lists them.
-        report.sections["data"] = {
-            "universe_point_in_time": inputs.universe_point_in_time,
-            "universe_note": inputs.universe_note,
-        }
-        if inputs.universe_point_in_time is False:
-            findings.append(
-                make_finding(
-                    "DATA-SURVIVORSHIP",
-                    detail=(
-                        "The universe was declared as built from present-day membership, so "
-                        "every instrument that failed, delisted or merged is missing from it. "
-                        "The result is an upper bound rather than an estimate, and no test "
-                        "below corrects for it."
-                        + (f" Declared: {inputs.universe_note}" if inputs.universe_note else "")
-                    ),
-                    evidence={
-                        "universe_point_in_time": False,
-                        "universe_note": inputs.universe_note,
-                    },
-                )
-            )
-        elif inputs.universe_point_in_time is None:
-            report.not_tested.append(
-                "Survivorship: the universe was not declared, so whether it was assembled "
-                "from present-day membership could not be checked. This is the one question "
-                "no tier can answer from the data - it has to be declared."
-            )
+        _run_survivorship(inputs, report, findings)
     # Sub-tests all work in per-period Sharpe. The report speaks in annualised
     # Sharpe throughout, so each section carries the scaled figure too - a page
     # that says 0.59 in one table and 0.037 in the next is not a report, it is

@@ -31,6 +31,9 @@ data:
   frequency: daily          # daily | weekly | monthly | quarterly | annual
   universe_point_in_time: true   # or false; see below
   universe_note: how the list was built and when
+  # Optional. Counts survivorship instead of declaring it; see below.
+  membership_frame: membership.csv
+  membership_index: SP500        # only when the file carries several
   # Optional: a local CSV or Parquet in the wide schema, relative to this file.
   # Given, nothing is downloaded.
   price_frame: prices.csv
@@ -92,12 +95,45 @@ market it was not told about.
 **`frequency`** sets the annualisation. Guessing it from the index is how a monthly strategy ends up
 with a Sharpe inflated by `sqrt(21)`.
 
-**`universe_point_in_time` is the one question nothing can answer from the data.** Survivorship
-leaves no trace in a return series — a universe of instruments that still exist today simply looks
+**`universe_point_in_time` is the one question nothing can answer from the return series.**
+Survivorship leaves no trace there — a universe of instruments that still exist today simply looks
 like a universe. So the audit asks. Declare `false` and it raises `DATA-SURVIVORSHIP` and treats
 the result as an upper bound; declare `true` and the report says so in its footer; leave it out and
 the question is listed under *what could not be tested*, which is where an unanswered question
 belongs.
+
+**`membership_frame` turns that declaration into a count.** Point it at a point-in-time membership
+list and the audit measures the hole instead of taking the researcher's word for it: how many names
+were index members during the window, how many of those are absent from the traded universe, and
+how many of the absent ones *left the index* while the backtest was running. Declaring
+`universe_point_in_time: true` while the list disagrees raises `DATA-DECLARATION-CONTRADICTED`,
+because a manifest with one disproved declaration is different evidence about all the others —
+`search.n_trials` above all.
+
+```csv
+ticker,start_date,end_date
+AAPL,1996-01-02,
+AAL,1996-01-02,1997-01-15
+AAL,2015-03-23,2024-09-23
+AAMRQ,1996-01-02,2003-03-14
+```
+
+`ticker` and `start_date` are required; a blank `end_date` means still a member; `id` (a permanent
+identifier) and `index` are optional. **One row per membership spell** — a name that left and
+rejoined has several, and the gap between them is exactly the period a backtest must not trade it.
+
+This is the schema of the most widely used free reconstruction, so the common case needs no
+conversion. Free coverage reaches **1996 for the S&P 500** and **2015 for the NASDAQ-100**; earlier
+than that needs CRSP or Compustat. A list covering only part of the sample is used for the part it
+covers, with the fraction stated in the report and the uncovered period named under *what could not
+be tested* — never silently counted as "nothing missing".
+
+Three things this cannot do, all stated on every run that uses it. It measures **extent, not
+magnitude**: free lists carry no prices for delisted names, so the audit counts what was excluded
+and never what it would have returned. It cannot tell a re-listing from a reused ticker without an
+`id` column. And it is refused outright if it records no removals at all — a table of *today's*
+members with the date each was added looks like history but contains only survivors, so it would
+report zero names missing no matter how many were.
 
 **Factors are loaded by default,** which is what puts every Sharpe on a risk-free basis. The Sharpe
 ratio is defined on returns in excess of cash, and computing it on total returns flatters the least

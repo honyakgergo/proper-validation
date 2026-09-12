@@ -68,7 +68,7 @@
     }
   ],
   "provenance": {
-    "generated_utc": "2026-09-12T10:35:48+00:00",
+    "generated_utc": "2026-09-12T11:58:00+00:00",
     "data_hash": "0eab6447855bc238",
     "seed": 0,
     "n_boot": 2000,
@@ -77,8 +77,8 @@
     "platform": "Windows-11-10.0.26200-SP0",
     "numpy": "2.5.3",
     "version": "0.1.0",
-    "commit": "8b865af",
-    "source_digest": "432b2d89e7a0",
+    "commit": "08ac3df",
+    "source_digest": "e9090b64fc87",
     "data_vintages": {
       "prices": "2026-09-09"
     }
@@ -94,7 +94,9 @@
   },
   "data": {
     "universe_point_in_time": true,
-    "universe_note": "A single instrument, SPY, fixed before the search."
+    "universe_note": "A single instrument, SPY, fixed before the search.",
+    "survivorship_basis": "declared",
+    "survivorship_basis_reason": "declared point-in-time by the manifest, not measured"
   },
   "sharpe": {
     "n_obs": 1004,
@@ -594,6 +596,13 @@
       1003
     ],
     "late_entrants": [],
+    "unexplained_late": [],
+    "explained_by_membership": [],
+    "traded_before_membership": [],
+    "membership_first": [],
+    "membership_last": [],
+    "ragged_total": 0,
+    "ragged_explained_by_membership": 0,
     "early_exits": [],
     "complete": true,
     "n_obs": 1004
@@ -992,6 +1001,10 @@
           1.0
         ],
         "late_entrants": [],
+        "unexplained_late": [],
+        "explained_by_membership": [],
+        "membership_first": [],
+        "membership_last": [],
         "early_exits": [],
         "complete": true,
         "n_obs": 1004

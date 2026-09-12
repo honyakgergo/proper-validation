@@ -110,7 +110,7 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[data,dev]"
 
-pytest -q                        # 1010 tests, no network, about a minute
+pytest -q                        # 1062 tests, no network, about a minute
 qv demo null_mined               # audit a synthetic strategy with a known-zero edge
 ```
 
@@ -359,7 +359,12 @@ to catch it fires on 80% of them.
   trading calendar, since the calendar is supplied rather than corrupted.
 - **`yfinance` has no delisted tickers**, so any universe from current index membership is
   survivorship-biased. Bring better data if you have it — point `data.price_frame` at any CSV or
-  Parquet and the network layer is never reached.
+  Parquet and the network layer is never reached. Point `data.membership_frame` at a point-in-time
+  constituent list and the bias is **counted rather than declared**: how many names were index
+  members during your window, and how many of those that *left the index* are missing from your
+  universe. Free reconstructions reach 1996 for the S&P 500 and 2015 for the NASDAQ-100. That
+  measures the **extent** of the bias, not its size — without prices for the dead names nothing can
+  tell you what they would have returned, and the report says so every time.
 - **Below ~30 observations** most methods degrade, and the tool refuses to print a confident number.
 - **PBO is noisy on one dataset.** Pure noise can land anywhere from 0.12 to 0.73. Read it alongside
   the other tests.
@@ -378,7 +383,7 @@ this tool exists to question. Also flagged.
 ## Development
 
 ```bash
-pytest -q                        # 1010 tests, no network
+pytest -q                        # 1062 tests, no network
 pytest -q -m "not slow"          # skips the coverage simulations
 pytest --cov=qv                  # 97% line coverage
 ```

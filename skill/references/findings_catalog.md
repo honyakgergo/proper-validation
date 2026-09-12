@@ -1,6 +1,6 @@
 # Findings catalog
 
-32 distinct defects. Generated from `qv/findings.py` - edit there, not here.
+34 distinct defects. Generated from `qv/findings.py` - edit there, not here.
 
 ## Leakage
 
@@ -272,9 +272,29 @@ Reordering the position series at random, holding average exposure and turnover 
 
 A universe of instruments that exist today excludes everything that failed, delisted or merged. The backtest then trades a portfolio nobody could have selected at the time, and the bias is upward by construction.
 
-**Detection.** Manifest declares a universe from a current-membership source.
+**Detection.** Declared by the manifest, or measured against a supplied point-in-time membership list: names that were index members during the window and are absent from the traded universe.
 
-**Remediation.** Use a point-in-time constituent list. Where none is available, say so and treat the result as an upper bound.
+**Remediation.** Use a point-in-time constituent list. Where none is available, say so and treat the result as an upper bound. Supplying one to `data.membership_frame` replaces the declaration with a count.
+
+### `DATA-MEMBERSHIP-NOT-POINT-IN-TIME` - The membership list supplied is a snapshot, not a history
+
+**Severity:** High
+
+A table of today's index members with the date each was added reaches back decades and looks like point-in-time data, but it contains only the companies that are still members - it is the survivorship bias itself in a history-shaped schema. Measured against it, every universe looks complete.
+
+**Detection.** No membership spell in the supplied list ever ends. A real reconstruction contains departures; a list of current members cannot.
+
+**Remediation.** Use a list that records removals as well as additions. A reconstruction from index change announcements has them; the current-membership table on an encyclopedia page does not.
+
+### `DATA-DECLARATION-CONTRADICTED` - A declared fact is contradicted by the data supplied with it
+
+**Severity:** High
+
+The manifest asserts something the data alongside it disproves. That is worse than an open question, because the reader has no way to tell which of the remaining declarations are still load-bearing - and the whole selection-bias correction rests on one of them, the trial count, which the researcher alone can supply.
+
+**Detection.** A declared field is compared against the evidence: the universe declared point-in-time while instruments demonstrably enter part-way through.
+
+**Remediation.** Correct the manifest and re-run. Then state how the other declared fields were arrived at, the trial count first.
 
 ### `DATA-QUALITY-GAPS` - Price series has gaps or adjustment artifacts
 

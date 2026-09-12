@@ -682,6 +682,12 @@ data:
   universe_point_in_time: null
   universe_note: >
     REPLACE ME - how the instrument list was built, and when.
+  # Optional: a point-in-time membership list, relative to this file, with
+  # columns ticker,start_date,end_date (blank end = still a member). Given one,
+  # survivorship is counted rather than declared. Free reconstructions exist
+  # for the S&P 500 back to 1996 and the NASDAQ-100 back to 2015.
+  # membership_frame: membership.csv
+  # membership_index: SP500   # only when the file carries several indices
 
 strategy:
   adapter: qv_adapter.py:positions

@@ -932,6 +932,15 @@ def universe_coverage_chart(coverage, theme: str = "light") -> Chart:
     A clean universe draws as a solid block of equal bars, which is the point:
     "nothing entered mid-sample" becomes something a reader can check at a
     glance instead of a claim they have to take.
+
+    Where a point-in-time membership list was supplied, each row also carries a
+    thin grey reference bar for the period the instrument was actually an index
+    member. That turns the chart into a comparison rather than a shape: a short
+    data bar under an equally short grey bar entered late because the *index*
+    added it late, which is correct; a short data bar under a full-length grey
+    bar is a hole in the data during a period the strategy should have been able
+    to trade it. Grey because it is context, in the same role as a benchmark -
+    red stays reserved for failure thresholds.
     """
     instruments = tuple(getattr(coverage, "instruments", ()) or ())
     if not instruments:
@@ -945,7 +954,14 @@ def universe_coverage_chart(coverage, theme: str = "light") -> Chart:
     last = np.asarray(coverage.last_index, dtype=float)
     n = int(coverage.n_obs)
     labels = tuple(getattr(coverage, "labels", ()) or ())
-    ragged = set(coverage.late_entrants) | set(coverage.early_exits)
+    # Only the *unexplained* edges draw as failures. A late entrant the
+    # membership list accounts for is not a defect, and colouring it like one
+    # would contradict the finding printed above the chart.
+    ragged = set(coverage.unexplained_late) | set(coverage.early_exits)
+    ragged |= set(getattr(coverage, "traded_before_membership", ()) or ())
+    member_first = tuple(getattr(coverage, "membership_first", ()) or ())
+    member_last = tuple(getattr(coverage, "membership_last", ()) or ())
+    has_membership = len(member_first) == len(instruments)
 
     pal = PALETTES[theme]
     # Half-width, to sit beside the delay chart. The height still grows with
@@ -958,6 +974,17 @@ def universe_coverage_chart(coverage, theme: str = "light") -> Chart:
         for row, i in enumerate(order):
             name = instruments[i]
             is_ragged = name in ragged
+            if has_membership and member_first[i] >= 0:
+                # Drawn first and taller, so the data bar reads as sitting
+                # inside the period the name was eligible.
+                ax.barh(
+                    row,
+                    member_last[i] - member_first[i] + 1,
+                    left=member_first[i],
+                    height=0.82,
+                    color=pal["null"],
+                    alpha=0.30,
+                )
             ax.barh(
                 row,
                 last[i] - first[i] + 1,
@@ -981,11 +1008,24 @@ def universe_coverage_chart(coverage, theme: str = "light") -> Chart:
             ax.set_xlabel("observation")
 
         complete = bool(coverage.complete)
-        ax.set_title(
-            f"All {len(instruments)} instruments span the sample"
-            if complete
-            else f"{len(ragged)} of {len(instruments)} do not span the sample"
-        )
+        if complete and has_membership:
+            title = f"All {len(instruments)} cover the period they were members"
+        elif complete:
+            title = f"All {len(instruments)} instruments span the sample"
+        elif has_membership:
+            title = (
+                f"{len(ragged)} of {len(instruments)} do not cover their membership"
+            )
+        else:
+            title = f"{len(ragged)} of {len(instruments)} do not span the sample"
+        ax.set_title(title)
+        if has_membership:
+            ax.plot(
+                [], [], color=pal["null"], alpha=0.30, linewidth=6,
+                label="index member",
+            )
+            ax.plot([], [], color=pal["strategy"], alpha=0.55, linewidth=6, label="data")
+            ax.legend(loc="lower right", fontsize=7, frameon=False)
 
     return _finish(
         fig,
@@ -995,6 +1035,10 @@ def universe_coverage_chart(coverage, theme: str = "light") -> Chart:
             "instruments": list(instruments),
             "coverage": [_clean(v) for v in coverage.coverage],
             "late_entrants": list(coverage.late_entrants),
+            "unexplained_late": list(coverage.unexplained_late),
+            "explained_by_membership": list(coverage.explained_late),
+            "membership_first": list(member_first),
+            "membership_last": list(member_last),
             "early_exits": list(coverage.early_exits),
             "complete": bool(coverage.complete),
             "n_obs": n,

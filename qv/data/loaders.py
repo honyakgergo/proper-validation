@@ -39,6 +39,7 @@ __all__ = [
     "load_prices",
     "load_universe",
     "read_price_frame",
+    "read_membership_frame",
     "load_fama_french",
     "to_returns",
 ]
@@ -372,6 +373,111 @@ def read_price_frame(path: str | Path, column: str | None = None) -> pd.DataFram
     if numeric.shape[1] == 0:
         raise ValueError(f"{path.name} has no numeric price columns")
     return numeric
+
+
+def read_membership_frame(
+    path: str | Path, index_name: str | None = None
+) -> "Membership":
+    """Read a point-in-time index membership list from a local CSV or Parquet.
+
+    Documented schema, one row per membership *spell*: ``ticker`` and
+    ``start_date`` required, ``end_date`` blank when the name is still a member,
+    optional ``id`` (a permanent identifier that survives a ticker change) and
+    ``index`` (so one file can carry several universes).
+
+    This is exactly the shape of the most widely used free file,
+    `sp500_ticker_start_end.csv` from fja05680/sp500, so the common case needs
+    no conversion. No network and no vendor: anyone with better data than a
+    reconstruction from change announcements points this at it.
+
+    Refuses rather than guesses. A membership list that cannot be trusted
+    produces a confidently wrong number, and a wrong count of missing names is
+    worse than no count - it is the false clean this whole feature exists to
+    prevent.
+    """
+    from qv.data.membership import Membership
+
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"no such membership file: {path}")
+
+    if path.suffix.lower() in (".parquet", ".pq"):
+        frame = pd.read_parquet(path)
+    else:
+        frame = pd.read_csv(path)
+
+    frame.columns = [str(c).strip().lower() for c in frame.columns]
+    missing = [c for c in ("ticker", "start_date") if c not in frame.columns]
+    if missing:
+        raise ValueError(
+            f"{path.name} is missing required column(s) {missing}; the schema is "
+            "ticker,start_date,end_date with an optional id and index"
+        )
+    if "end_date" not in frame.columns:
+        frame["end_date"] = pd.NaT
+
+    for field in ("start_date", "end_date"):
+        parsed = pd.to_datetime(frame[field], errors="coerce")
+        if getattr(parsed.dtype, "tz", None) is not None:
+            parsed = parsed.dt.tz_localize(None)
+        frame[field] = parsed
+    if frame["start_date"].isna().any():
+        bad = int(frame["start_date"].isna().sum())
+        raise ValueError(
+            f"{path.name} has {bad} row(s) with an unparsable start_date; dates must "
+            "be ISO (YYYY-MM-DD)"
+        )
+
+    frame["ticker"] = frame["ticker"].astype(str).str.strip().str.upper()
+    if frame.empty:
+        raise ValueError(f"{path.name} contains no membership rows")
+
+    if "index" in frame.columns:
+        names = sorted(str(v) for v in frame["index"].dropna().unique())
+        if index_name is not None:
+            frame = frame[frame["index"].astype(str) == index_name]
+            if frame.empty:
+                raise ValueError(
+                    f"{path.name} has no rows for index {index_name!r}; it carries "
+                    f"{names}"
+                )
+        elif len(names) > 1:
+            raise ValueError(
+                f"{path.name} carries more than one index ({names}); name which one "
+                "with data.membership_index rather than letting the tool pick"
+            )
+
+    ends = frame["end_date"]
+    backwards = ends.notna() & (ends <= frame["start_date"])
+    if backwards.any():
+        raise ValueError(
+            f"{path.name} has {int(backwards.sum())} spell(s) ending on or before "
+            "they start"
+        )
+
+    # Overlapping spells for one ticker are malformed: a name cannot be two
+    # separate members of the same index at once. Non-overlapping repeats are
+    # fine and expected - names leave and rejoin.
+    ordered = frame.sort_values(["ticker", "start_date"])
+    previous_end = ordered.groupby("ticker")["end_date"].shift(1)
+    previous_ticker = ordered["ticker"].shift(1)
+    overlapping = (
+        (ordered["ticker"] == previous_ticker)
+        & previous_end.notna()
+        & (ordered["start_date"] < previous_end)
+    )
+    if overlapping.any():
+        names = sorted(set(ordered.loc[overlapping, "ticker"]))[:6]
+        raise ValueError(
+            f"{path.name} has overlapping membership spells for {names}; a ticker "
+            "cannot be two members of one index at the same time"
+        )
+
+    return Membership(
+        frame=frame.reset_index(drop=True),
+        source=f"local file {path.name}",
+        index_name=index_name,
+    )
 
 
 def to_returns(prices: pd.DataFrame | pd.Series, column: str = "close") -> pd.Series:

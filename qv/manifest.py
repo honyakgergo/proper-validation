@@ -73,11 +73,20 @@ class DataSpec(BaseModel):
     #: manifest. Given, no download happens and no vendor is privileged.
     price_frame: str | None = None
 
-    #: The one question no tier can answer from the data. Left unset, the
-    #: report lists it under *what could not be tested*, which is where an
-    #: unanswered question belongs.
+    #: The one question no tier can answer from the data *alone*. Left unset,
+    #: the report lists it under *what could not be tested*, which is where an
+    #: unanswered question belongs. Supplying `membership_frame` below replaces
+    #: this declaration with a measurement, and contradicting it raises
+    #: DATA-DECLARATION-CONTRADICTED.
     universe_point_in_time: bool | None = None
     universe_note: str | None = None
+    #: A local point-in-time membership list, relative to this file:
+    #: ticker,start_date,end_date with an optional id and index. Turns
+    #: survivorship from something declared into something counted.
+    membership_frame: str | None = None
+    #: Which index to keep when the file carries several. Required in that
+    #: case - picking one silently would decide the answer for the reader.
+    membership_index: str | None = None
 
     # Declared but not consumed by the engine; kept so a manifest can carry
     # them without being rejected.

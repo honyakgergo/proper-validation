@@ -500,10 +500,57 @@ _ENTRIES: tuple[CatalogEntry, ...] = (
             "delisted or merged. The backtest then trades a portfolio nobody could have "
             "selected at the time, and the bias is upward by construction."
         ),
-        detection="Manifest declares a universe from a current-membership source.",
+        detection=(
+            "Declared by the manifest, or measured against a supplied point-in-time "
+            "membership list: names that were index members during the window and are "
+            "absent from the traded universe."
+        ),
         remediation=(
             "Use a point-in-time constituent list. Where none is available, say so and "
-            "treat the result as an upper bound."
+            "treat the result as an upper bound. Supplying one to "
+            "`data.membership_frame` replaces the declaration with a count."
+        ),
+    ),
+    CatalogEntry(
+        id="DATA-MEMBERSHIP-NOT-POINT-IN-TIME",
+        title="The membership list supplied is a snapshot, not a history",
+        severity=Severity.HIGH,
+        category="data",
+        explanation=(
+            "A table of today's index members with the date each was added reaches back "
+            "decades and looks like point-in-time data, but it contains only the "
+            "companies that are still members - it is the survivorship bias itself in a "
+            "history-shaped schema. Measured against it, every universe looks complete."
+        ),
+        detection=(
+            "No membership spell in the supplied list ever ends. A real reconstruction "
+            "contains departures; a list of current members cannot."
+        ),
+        remediation=(
+            "Use a list that records removals as well as additions. A reconstruction "
+            "from index change announcements has them; the current-membership table on "
+            "an encyclopedia page does not."
+        ),
+    ),
+    CatalogEntry(
+        id="DATA-DECLARATION-CONTRADICTED",
+        title="A declared fact is contradicted by the data supplied with it",
+        severity=Severity.HIGH,
+        category="data",
+        explanation=(
+            "The manifest asserts something the data alongside it disproves. That is "
+            "worse than an open question, because the reader has no way to tell which "
+            "of the remaining declarations are still load-bearing - and the whole "
+            "selection-bias correction rests on one of them, the trial count, which the "
+            "researcher alone can supply."
+        ),
+        detection=(
+            "A declared field is compared against the evidence: the universe declared "
+            "point-in-time while instruments demonstrably enter part-way through."
+        ),
+        remediation=(
+            "Correct the manifest and re-run. Then state how the other declared fields "
+            "were arrived at, the trial count first."
         ),
     ),
     CatalogEntry(

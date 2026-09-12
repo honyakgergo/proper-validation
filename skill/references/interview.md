@@ -19,7 +19,12 @@ run honestly should not be run.
 
 ## Data provenance
 
-6. **Where did the universe list come from, and when was it constructed?** A list of instruments
+6. **Where did the universe list come from, and when was it constructed?** If they can point at a
+    point-in-time constituent list, put it in `data.membership_frame` and the audit counts the
+    missing names rather than accepting a declaration. Free reconstructions cover the S&P 500 from
+    1996 and the NASDAQ-100 from 2015. Do **not** accept a table of current members with a
+    "date added" column: it reaches back decades and looks like history, but it contains only the
+    survivors, and the audit refuses it for that reason. A list of instruments
    that exist today excludes everything that failed. Record the answer as
    `data.universe_point_in_time` in the manifest and pass it to `AuditInputs`: `false` raises
    `DATA-SURVIVORSHIP` and makes the result an upper bound, and leaving it unanswered puts the
