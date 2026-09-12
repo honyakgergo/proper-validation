@@ -25,8 +25,14 @@ accident.
    authoritative; the HTML may never make a claim the JSON cannot back. Each
    chart function returns a `chart_spec` holding exactly the values plotted,
    and the tests assert on the spec rather than on pixels.
-3. **The engine never touches the network.** `qv/data/loaders.py` is the single
-   network boundary. Everything else takes DataFrames in and returns results
+3. **The engine never touches the network, and the repository ships no data.**
+   `qv/data/loaders.py` is the single network boundary, and everything it
+   fetches — prices, Ken French's factors, index membership — is cached outside
+   the repository rather than committed. That is a licensing position as much as
+   a tidiness one: an index constituent list is somebody's compilation, most
+   indices select members by committee judgement (which is what makes a
+   compilation copyrightable), and the EU protects databases with no creativity
+   test at all. Shipping a pinned URL and a parser redistributes nothing. Everything else takes DataFrames in and returns results
    out, which is what lets the whole suite run offline and deterministically.
    Do not import `yfinance` anywhere else.
 4. **State what could not be tested.** Every skipped test appends a reason to
@@ -34,7 +40,16 @@ accident.
 5. **Never report a number more confidently than it deserves.** Below
    `MIN_OBS_FOR_ASYMPTOTICS` observations, refuse asymptotic claims. Where a
    result has a resolution limit, report the limit beside it — see the
-   behavioural leakage test's detection floor.
+   behavioural leakage test's detection floor, and the membership measurement's
+   ticker-identity and covered-window limits.
+6. **A finding that fires on everyone teaches people to scroll past it.** The
+   severity a defect carries has to track the damage actually measured. This is
+   why `DATA-SURVIVORSHIP` no longer fires on a universe that merely holds a
+   *subset* of an index: that is incompleteness, and lumping it in with a book
+   missing every name that failed made both unreadable. Where grading needs a
+   threshold, derive it from something the data supplies — `exit_miss_rate` has
+   meaningful endpoints and needs no invented cut — rather than picking a number
+   that feels right.
 
 ## The two suites
 
@@ -63,6 +78,7 @@ individual tests, but no string a reader sees mentions it.
 | `qv/findings.py` | The catalog: every defect the tool can name, with detection and remediation. **Single source of truth** — `skill/references/findings_catalog.md` is generated from it. |
 | `qv/engine.py` | The engine suite: determinism, degeneracy, execution-delay fragility, universe coverage. |
 | `qv/leakage/` | AST scanner, notebook trial archaeology, behavioural perturbation test. |
+| `qv/data/membership.py` | Point-in-time index membership. Turns survivorship from a declaration into a count; pure, no I/O, the reader lives in `loaders.py`. |
 | `qv/stats/` | Sharpe and its standard error, Lo annualisation, stationary bootstrap, Deflated Sharpe, PBO, resampled risk. |
 | `qv/pipeline.py` | `audit_from_manifest`: a manifest plus an adapter to a finished report. What `qv validate --manifest` runs. |
 | `qv/report/` | Charts (inline SVG) and the Jinja template. |
@@ -80,7 +96,7 @@ commands (`status`, `diff`, `log`) are fine.
 ## Before you hand work back
 
 ```bash
-pytest -q                      # must stay green; 1062 tests, no network
+pytest -q                      # must stay green; 1075 tests, no network
 pytest -q -m "not slow"        # faster, skips the coverage simulations
 pytest --cov=qv                # coverage should not fall
 ```
@@ -100,6 +116,7 @@ python real_user_tests/dual_momentum/run.py --offline
 python real_user_tests/dual_momentum/run.py --offline --suite statistical
 python real_user_tests/dual_momentum/run.py --offline --suite engine
 python real_user_tests/sector_momentum/run.py --offline
+python real_user_tests/sp500_momentum/run.py --offline
 python examples/01_mined_noise/mine.py --offline
 ```
 
@@ -130,9 +147,10 @@ resumes.
 A refetch will not reproduce the published figures to the last digit — Yahoo
 restates and Dartmouth revises, which is why the footer prints data vintages.
 What should be stable across vintages is the **verdict and the finding IDs**.
-That was measured on 2026-09-12 against a genuinely cold cache: all three
+That was measured on 2026-09-12 against a genuinely cold cache: all four
 fetching examples came back with identical verdicts and identical finding IDs
-on fresh data. If one of those moves, it is a real regression and not drift.
+on fresh data, including the one that fetches a membership list as well as
+prices. If one of those moves, it is a real regression and not drift.
 
 ## Testing conventions
 

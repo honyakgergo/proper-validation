@@ -836,11 +836,11 @@ delay, because the signal was picking up a reversal that had already reverted
 by the time anyone could act on it.</p>
 {% endif %}
 
-<p class="note">Survivorship itself cannot be measured from a return series - a
-universe of survivors looks exactly like a universe, which is why the report
-asks for it to be declared. Inclusion timing is the part that <em>is</em>
-visible: an instrument added the day it listed was chosen in the knowledge that
-it would exist.</p>
+<p class="note">A universe of survivors looks exactly like a universe, so
+survivorship cannot be read out of the returns - it has to be declared, or
+counted against a point-in-time membership list. Inclusion timing is the part
+that is visible in the price data on its own: an instrument added the day it
+listed was chosen in the knowledge that it would exist.</p>
 
 <div class="chart-row">
 {{ chart_html('execution_delay_fragility') }}

@@ -1,0 +1,65 @@
+# Thirty S&P 500 names, cross-sectional momentum.
+#
+#   qv validate --manifest real_user_tests/sp500_momentum/research_manifest.yaml
+#
+# The universe was assembled the way most universes are assembled: by taking names
+# that are in the index today and have been for the whole sample. That is the
+# defect this example exists to measure, and `membership_frame` below is what turns
+# it from a caveat into a count.
+
+name: S&P 500 cross-sectional momentum, thirty names
+
+data:
+  universe: [AAPL, MSFT, JNJ, XOM, JPM, PG, KO, PEP, WMT, HD,
+             MRK, CVX, ABT, MCD, CSCO, ORCL, INTC, VZ, T, CAT,
+             BA, MMM, IBM, HON, LOW, UNH, PFE, DIS, NKE, TGT]
+  benchmark: SPY
+  start_date: "2010-01-04"
+  end_date: "2024-12-31"
+  source: yfinance
+  asset_class: us_large_cap_equity
+  frequency: daily
+
+  # Point-in-time membership for the whole index, so survivorship is counted
+  # rather than declared. Fetched once and cached outside the repository, the
+  # same way prices and factors are - nothing anyone else compiled is shipped
+  # in this repository. Covers 1996 onward.
+  membership: sp500
+
+  # Declared honestly: this universe is not point-in-time. Left as `false` on
+  # purpose rather than omitted, so the report shows the measurement agreeing
+  # with the declaration instead of contradicting it.
+  universe_point_in_time: false
+  universe_note: >
+    Thirty large, liquid names taken from present-day S&P 500 membership, each
+    of which has been in the index continuously since before the sample starts.
+    Assembled in 2026 from a screener, which is exactly how the bias gets in.
+
+strategy:
+  adapter: qv_adapter.py:positions
+  fixed:
+    skip: 21
+    rebalance: 21
+
+chosen_parameters:
+  lookback: 252
+  top_n: 6
+
+search:
+  axes:
+    lookback: [126, 189, 252]
+    top_n: [4, 6, 8]
+  # The grid is nine points. Declared higher because the universe size, the skip
+  # and the rebalance frequency were all settled by looking at results before the
+  # grid was written down, and a grid cannot contain what was discarded before it
+  # existed. Overstating is the cheap direction.
+  n_trials: 40
+
+process:
+  positions_shifted: true
+  lookahead_possible: false
+  notes: >
+    Signals use trailing windows only and skip the most recent month. Positions
+    are traded from the session after the signal that produced them. Prices are
+    split- and dividend-adjusted closes from yfinance, which carries no delisted
+    tickers - which is the whole point of the membership check.

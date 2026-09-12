@@ -68,7 +68,7 @@
     }
   ],
   "provenance": {
-    "generated_utc": "2026-09-12T11:58:00+00:00",
+    "generated_utc": "2026-09-12T13:23:20+00:00",
     "data_hash": "0eab6447855bc238",
     "seed": 0,
     "n_boot": 2000,
@@ -77,8 +77,8 @@
     "platform": "Windows-11-10.0.26200-SP0",
     "numpy": "2.5.3",
     "version": "0.1.0",
-    "commit": "08ac3df",
-    "source_digest": "e9090b64fc87",
+    "commit": "ca9f570",
+    "source_digest": "b94954d3670a",
     "data_vintages": {
       "prices": "2026-09-09"
     }

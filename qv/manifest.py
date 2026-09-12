@@ -80,9 +80,15 @@ class DataSpec(BaseModel):
     #: DATA-DECLARATION-CONTRADICTED.
     universe_point_in_time: bool | None = None
     universe_note: str | None = None
+    #: A named membership source the tool knows how to fetch: `sp500` or
+    #: `nasdaq100`. Fetched once and cached outside the repository, exactly as
+    #: prices and factors are - the package ships the link and the parser, never
+    #: the list.
+    membership: str | None = None
     #: A local point-in-time membership list, relative to this file:
-    #: ticker,start_date,end_date with an optional id and index. Turns
-    #: survivorship from something declared into something counted.
+    #: ticker,start_date,end_date with an optional id and index. Use this for any
+    #: index the named sources do not cover, or for better data than a free
+    #: reconstruction.
     membership_frame: str | None = None
     #: Which index to keep when the file carries several. Required in that
     #: case - picking one silently would decide the answer for the reader.
@@ -113,6 +119,17 @@ class DataSpec(BaseModel):
                 "returns today rather than the numbers that were published"
             )
         return value
+
+    @model_validator(mode="after")
+    def _one_membership_source(self) -> "DataSpec":
+        """Two lists would mean the tool picking one, and the choice decides the
+        answer. Refuse rather than pick."""
+        if self.membership and self.membership_frame:
+            raise ValueError(
+                "set either data.membership (a named source) or "
+                "data.membership_frame (a local file), not both"
+            )
+        return self
 
     @model_validator(mode="after")
     def _resolve_universe(self) -> DataSpec:

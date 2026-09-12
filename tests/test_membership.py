@@ -16,6 +16,7 @@ import pytest
 
 from qv.data.loaders import read_membership_frame
 from qv.data.membership import measure_survivorship
+from qv.types import Suite
 
 WINDOW = ("2012-01-02", "2020-12-31")
 
@@ -686,3 +687,220 @@ class TestTheCoverageChart:
         spec = universe_coverage_chart(universe_coverage(prices)).spec
         assert spec["membership_first"] == []
         assert spec["explained_by_membership"] == []
+
+
+class TestStatedLimits:
+    """A tool that measures its own resolution and keeps quiet about it is
+    reporting a number more confidently than it earned."""
+
+    def test_ticker_reuse_is_stated_when_it_cannot_be_resolved(self, tmp_path):
+        from qv.audit import AuditInputs, run_audit
+
+        rows = [
+            ("AAA", "2015-01-02", ""),
+            ("REUSED", "2015-01-02", "2016-01-04"),
+            ("REUSED", "2017-01-03", ""),
+            ("DEAD1", "2015-01-02", "2016-06-30"),
+        ]
+        membership = read_membership_frame(write(tmp_path, rows))
+        gen = np.random.default_rng(3)
+        report = run_audit(
+            AuditInputs(
+                returns=gen.normal(0.0004, 0.01, 600),
+                membership=membership,
+                sample_window=("2015-01-02", "2018-01-02"),
+                universe_names=["AAA", "REUSED"],
+                suite=Suite.ENGINE,
+                n_boot=100,
+            )
+        )
+        assert any("Ticker identity" in line for line in report.not_tested)
+        assert any("REUSED" in line for line in report.not_tested)
+
+    def test_an_id_column_resolves_it_and_the_limit_disappears(self, tmp_path):
+        """The paired must-pass. Stating a limit that does not apply is noise,
+        and noise is how a real limit gets skipped over."""
+        from qv.audit import AuditInputs, run_audit
+
+        rows = [
+            ("AAA", "2015-01-02", "", "ID-A"),
+            ("REUSED", "2015-01-02", "2016-01-04", "ID-R1"),
+            ("REUSED", "2017-01-03", "", "ID-R2"),
+            ("DEAD1", "2015-01-02", "2016-06-30", "ID-D"),
+        ]
+        membership = read_membership_frame(
+            write(tmp_path, rows, columns=["ticker", "start_date", "end_date", "id"])
+        )
+        gen = np.random.default_rng(3)
+        report = run_audit(
+            AuditInputs(
+                returns=gen.normal(0.0004, 0.01, 600),
+                membership=membership,
+                sample_window=("2015-01-02", "2018-01-02"),
+                universe_names=["AAA", "REUSED"],
+                suite=Suite.ENGINE,
+                n_boot=100,
+            )
+        )
+        assert not any("Ticker identity" in line for line in report.not_tested)
+
+    def test_the_schema_constant_is_the_one_the_reader_enforces(self, tmp_path):
+        """MEMBERSHIP_COLUMNS was declared, exported and never read. A schema
+        written down twice drifts."""
+        from qv.data.membership import MEMBERSHIP_COLUMNS
+
+        path = write(tmp_path, [("AAA", "")], columns=["ticker", "end_date"])
+        with pytest.raises(ValueError) as excinfo:
+            read_membership_frame(path)
+        assert ",".join(MEMBERSHIP_COLUMNS) in str(excinfo.value)
+
+
+class TestEndpointConvention:
+    """Both ends inclusive. Pinned because a name leaving on the last session is
+    the kind of boundary that flips a count without anyone noticing."""
+
+    def test_a_spell_ending_on_the_last_session_is_not_an_exit(self, tmp_path):
+        """It was a member on every day of the window, so it did not leave
+        during it. Being absent from the universe is then incompleteness rather
+        than survivorship - which is the direction rule doing its job."""
+        rows = [("AAA", "2015-01-02", ""), ("EDGE", "2015-01-02", "2018-01-02")]
+        result = measurement(
+            tmp_path, rows=rows, universe=["AAA"], window=("2015-01-02", "2018-01-02")
+        )
+        assert "EDGE" not in result.missing_exited
+        assert "EDGE" in result.missing_still_member
+        assert result.exits_total == 0
+
+    def test_a_spell_ending_one_session_earlier_is(self, tmp_path):
+        """The paired must-fail, one day apart."""
+        rows = [("AAA", "2015-01-02", ""), ("EDGE", "2015-01-02", "2018-01-01")]
+        result = measurement(
+            tmp_path, rows=rows, universe=["AAA"], window=("2015-01-02", "2018-01-02")
+        )
+        assert result.missing_exited == ("EDGE",)
+        assert result.exits_total == 1
+
+    def test_a_single_day_spell_is_visible(self, tmp_path):
+        """The shortest spell is reported so a reader knows the resolution: a
+        membership shorter than the sampling interval can fall between
+        observations entirely."""
+        rows = [("AAA", "2015-01-02", ""), ("ONEDAY", "2016-03-01", "2016-03-02")]
+        result = measurement(
+            tmp_path, rows=rows, universe=["AAA"], window=("2015-01-02", "2018-01-02")
+        )
+        assert result.shortest_spell_days == 1
+        assert result.missing_exited == ("ONEDAY",)
+
+
+class TestNamedSources:
+    """The tool ships a link and a parser, never a list. These tests exercise
+    the parser with no network: the fetch is faked."""
+
+    @staticmethod
+    def _yaml_docs():
+        """Two years of NASDAQ-100-shaped change files that agree with each other."""
+        return {
+            2015: (
+                "year: 2015\n"
+                "tickers_on_Jan_1: [AAA, BBB, CCC]\n"
+                "changes:\n"
+                "  2015-06-01:\n"
+                "    difference: [CCC]\n"
+                "    union: [DDD]\n"
+            ),
+            2016: (
+                "year: 2016\n"
+                "tickers_on_Jan_1: [AAA, BBB, DDD]\n"
+                "changes:\n"
+                "  2016-03-15:\n"
+                "    difference: [BBB]\n"
+                "    union: [EEE]\n"
+            ),
+        }
+
+    def _install(self, monkeypatch, docs):
+        def fake_download(url):
+            for year, text in docs.items():
+                if f"-{year}.yaml" in url:
+                    return text.encode("utf-8")
+            raise RuntimeError("no such year")
+
+        monkeypatch.setattr("qv.data.loaders._download", fake_download)
+
+    def test_the_reconstruction_walks_the_changes(self, monkeypatch):
+        from qv.data.loaders import _nasdaq100_spells
+
+        self._install(monkeypatch, self._yaml_docs())
+        frame = _nasdaq100_spells((2015, 2018)).set_index("ticker")
+
+        assert str(frame.loc["CCC", "end_date"].date()) == "2015-06-01"
+        assert str(frame.loc["DDD", "start_date"].date()) == "2015-06-01"
+        assert str(frame.loc["BBB", "end_date"].date()) == "2016-03-15"
+        assert pd.isna(frame.loc["AAA", "end_date"]), "still a member"
+
+    def test_a_disagreement_with_the_declared_list_refuses(self, monkeypatch):
+        """The negative control, and the reason this reconstruction is
+        trustworthy at all. Each yearly file declares its own 1 January
+        membership, so the walk can be checked against it. A table that is
+        quietly wrong is the worst thing this feature could produce."""
+        from qv.data.loaders import _nasdaq100_spells
+
+        docs = self._yaml_docs()
+        # 2016 now claims a name the 2015 changes never added.
+        docs[2016] = docs[2016].replace(
+            "tickers_on_Jan_1: [AAA, BBB, DDD]", "tickers_on_Jan_1: [AAA, BBB, ZZZ]"
+        )
+        self._install(monkeypatch, docs)
+
+        with pytest.raises(ValueError, match="disagrees with the declared membership"):
+            _nasdaq100_spells((2015, 2018))
+
+    def test_missing_years_simply_end_the_walk(self, monkeypatch):
+        """Future years do not exist yet, which is not an error."""
+        from qv.data.loaders import _nasdaq100_spells
+
+        self._install(monkeypatch, self._yaml_docs())
+        frame = _nasdaq100_spells((2015, 2030))
+        assert len(frame) >= 4
+
+    def test_an_unknown_source_names_the_ones_that_exist(self):
+        from qv.data.loaders import load_index_membership
+
+        with pytest.raises(ValueError, match="unknown membership source"):
+            load_index_membership("ftse100")
+
+    def test_offline_without_a_cache_names_the_remedy(self, monkeypatch, tmp_path):
+        from qv.data.loaders import load_index_membership
+
+        monkeypatch.setattr("qv.data.loaders.cache_dir", lambda: tmp_path)
+        with pytest.raises(FileNotFoundError, match="without --offline"):
+            load_index_membership("sp500", offline=True)
+
+    def test_a_fetched_list_is_validated_like_any_other(self, monkeypatch, tmp_path):
+        """A named source gets no special trust: it goes through exactly the
+        same refusals a researcher's own file does."""
+        import pandas as pd
+
+        from qv.data.loaders import load_index_membership
+
+        monkeypatch.setattr("qv.data.loaders.cache_dir", lambda: tmp_path)
+        bad = pd.DataFrame({"ticker": ["AAA"], "start_date": ["2015-01-02"],
+                            "end_date": ["2014-01-02"]}).to_csv(index=False)
+        monkeypatch.setattr(
+            "qv.data.loaders._download", lambda url: bad.encode("utf-8")
+        )
+        with pytest.raises(ValueError, match="ending on or before"):
+            load_index_membership("sp500")
+
+    def test_the_manifest_refuses_two_sources_at_once(self, tmp_path):
+        """Picking one for the user would decide the answer for them."""
+        from qv.manifest import DataSpec
+
+        with pytest.raises(Exception, match="not both"):
+            DataSpec(
+                universe=["AAA", "BBB"],
+                start_date="2015-01-02",
+                end_date="2018-01-02",
+                membership="sp500",
+                membership_frame="local.csv",
+            )

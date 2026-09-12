@@ -276,6 +276,21 @@ def _run_survivorship(inputs: AuditInputs, report: AuditReport, findings: list) 
                     "window and says nothing about the rest. Every membership count in "
                     "this report describes the covered period only."
                 )
+            # A ticker with more than one spell is either a name that rejoined
+            # or a symbol another company later took over. Without a permanent
+            # identifier nothing in the file separates them, and a wrong join
+            # would attach the wrong company's prices - a plausible number
+            # rather than an error. Say so rather than let the count stand
+            # unqualified.
+            reused = measurement.noncontiguous_tickers
+            if reused and not measurement.has_identifier:
+                report.not_tested.append(
+                    f"Ticker identity for {len(reused)} name(s) "
+                    f"({', '.join(reused[:6])}): they hold more than one membership "
+                    "spell, and with no permanent identifier in the list a re-listing "
+                    "cannot be told from a symbol reused by a different company. Add "
+                    "an `id` column to resolve them."
+                )
             # Extent, not magnitude. True on every run that gets this far, and the
             # one sentence that stops the count being read as a haircut.
             report.not_tested.append(

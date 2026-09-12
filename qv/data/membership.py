@@ -38,14 +38,15 @@ __all__ = [
     "measure_survivorship",
 ]
 
-#: The documented schema. `ticker` and `start_date` are required; a blank
-#: `end_date` means "still a member"; `id` is a permanent identifier that
-#: survives a ticker change, and `index` lets one file carry several universes.
+#: The documented schema, and the single place it is written down - the reader
+#: validates against these names rather than repeating them.
 #:
 #: This is deliberately the exact shape of the most widely used free file,
 #: `sp500_ticker_start_end.csv` from fja05680/sp500, so that the common case
 #: needs no conversion at all.
-MEMBERSHIP_COLUMNS = ("ticker", "start_date", "end_date", "id", "index")
+REQUIRED_COLUMNS = ("ticker", "start_date")
+OPTIONAL_COLUMNS = ("end_date", "id", "index")
+MEMBERSHIP_COLUMNS = REQUIRED_COLUMNS + OPTIONAL_COLUMNS
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,11 @@ class Membership:
     frame: pd.DataFrame
     source: str
     index_name: str | None = None
+    #: When the list was fetched, or the filename when it came from disk. A
+    #: membership list ages: the S&P 500 changes about twenty times a year, so a
+    #: list from last year under-reports departures - and under-reporting is the
+    #: false-clean direction. The footer prints this beside the price vintage.
+    vintage: str | None = None
 
     @property
     def file_start(self) -> pd.Timestamp:
@@ -106,6 +112,7 @@ class Membership:
             "n_tickers": int(self.frame["ticker"].nunique()),
             "n_spells_with_exit": self.n_spells_with_exit,
             "has_identifier": self.has_identifier,
+            "vintage": self.vintage,
             "file_start": str(self.file_start.date()),
             "noncontiguous_tickers": list(self.noncontiguous_tickers),
         }
@@ -281,6 +288,12 @@ class SurvivorshipMeasurement:
                     "would have been, so it bounds the extent of the bias and not its "
                     "size." + window
                 ),
+                # The ceiling, stated in code because it is the kind of limit
+                # someone lifts later without knowing why it was there. With no
+                # prices for the delisted names this measures extent and not
+                # magnitude, and extent alone cannot earn a CRITICAL - which is
+                # what would push a verdict to FALSIFIED on a count.
+                severity=Severity.HIGH,
                 evidence={
                     "missing_exited": list(self.missing_exited[:20]),
                     "n_missing_exited": len(self.missing_exited),

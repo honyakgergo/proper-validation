@@ -32,8 +32,10 @@ data:
   universe_point_in_time: true   # or false; see below
   universe_note: how the list was built and when
   # Optional. Counts survivorship instead of declaring it; see below.
-  membership_frame: membership.csv
-  membership_index: SP500        # only when the file carries several
+  membership: sp500              # or nasdaq100 - fetched and cached
+  # ...or, for any other index, your own file:
+  # membership_frame: membership.csv
+  # membership_index: SP500      # only when the file carries several
   # Optional: a local CSV or Parquet in the wide schema, relative to this file.
   # Given, nothing is downloaded.
   price_frame: prices.csv
@@ -102,7 +104,17 @@ the result as an upper bound; declare `true` and the report says so in its foote
 the question is listed under *what could not be tested*, which is where an unanswered question
 belongs.
 
-**`membership_frame` turns that declaration into a count.** Point it at a point-in-time membership
+**`membership: sp500` is the quickest way to turn that declaration into a count.** Two named
+sources are fetched and cached the same way prices and factors are - `sp500` (1996 onward) and
+`nasdaq100` (2015 onward). The package ships the link and the parser, never the list itself: an
+index constituent list is somebody's compilation, and pointing at where it lives redistributes
+nothing. The report footer prints which list was used and when it was fetched, because a membership
+list ages - the S&P 500 changes about twenty times a year, and a stale list under-reports
+departures, which is the flattering direction.
+
+**`membership_frame` does the same from a local file**, for any index the named sources do not cover
+or when you have better data than a free reconstruction. Set one or the other, never both - picking
+one for the researcher would decide the answer for them. Point it at a point-in-time membership
 list and the audit measures the hole instead of taking the researcher's word for it: how many names
 were index members during the window, how many of those are absent from the traded universe, and
 how many of the absent ones *left the index* while the backtest was running. Declaring

@@ -11,11 +11,21 @@ These are the runs where the answer is not decided in advance.
 |---|---|---|---|
 | [`sector_momentum/`](sector_momentum/) | Top 3 of 9 SPDR sectors by 12-1 momentum, monthly | Sharpe 0.510 vs 0.530 | **Falsified** |
 | [`dual_momentum/`](dual_momentum/) | The above plus an absolute filter, a bond/gold leg and volatility targeting | Sharpe **0.540** vs 0.530, drawdown **-27%** vs -55% | **Materially weakened** |
+| [`sp500_momentum/`](sp500_momentum/) | Thirty S&P 500 single names, 12-1 momentum, top 6 monthly, 2010-2024 | Sharpe 0.75 vs 0.77 | **Falsified** |
 
-The pair is the point. The plain rotation loses to the index and is falsified on
+The first pair is the point. The plain rotation loses to the index and is falsified on
 attribution. The more careful construction beats it - narrowly on Sharpe, hugely
 on drawdown - and is still weakened, for entirely different reasons. A validator
 that returned the same verdict for both would be telling you nothing.
+
+**`sp500_momentum/` is here for a different reason.** The two ETF rotations above
+trade hand-picked instruments, where index membership does not apply and
+survivorship can only be *declared*. The thirty-name single-stock strategy is
+audited against point-in-time constituent history, so the question is counted
+instead: over 2010-2024 the index had **813** members, this backtest could choose
+from **30**, and **310 of the 310 names that left the index** are absent from it.
+The 473 names that were still members and simply were not traded raise nothing —
+that is incompleteness, which is a choice, not survivorship.
 
 Every Sharpe on this page and in both reports is **in excess of the risk-free
 rate** (1.56% a year over 2005-2024, Ken French's RF). Returns, drawdown and

@@ -40,6 +40,8 @@ __all__ = [
     "load_universe",
     "read_price_frame",
     "read_membership_frame",
+    "load_index_membership",
+    "MEMBERSHIP_SOURCES",
     "load_fama_french",
     "to_returns",
 ]
@@ -395,8 +397,6 @@ def read_membership_frame(
     worse than no count - it is the false clean this whole feature exists to
     prevent.
     """
-    from qv.data.membership import Membership
-
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"no such membership file: {path}")
@@ -406,12 +406,33 @@ def read_membership_frame(
     else:
         frame = pd.read_csv(path)
 
+    return _build_membership(frame, f"local file {path.name}", index_name, path.name)
+
+
+def _build_membership(
+    frame: pd.DataFrame,
+    source: str,
+    index_name: str | None = None,
+    label: str = "membership list",
+    vintage: str | None = None,
+) -> "Membership":
+    """Validate a spell table and refuse it if it cannot support a claim.
+
+    Shared by the local-file reader and the named sources, so a fetched list is
+    held to exactly the same standard as one the researcher supplies. A
+    membership list that cannot be trusted produces a confidently wrong count,
+    and a wrong count of missing names is worse than no count - it is the false
+    clean this whole feature exists to prevent.
+    """
+    from qv.data.membership import MEMBERSHIP_COLUMNS, REQUIRED_COLUMNS, Membership
+
+    frame = frame.copy()
     frame.columns = [str(c).strip().lower() for c in frame.columns]
-    missing = [c for c in ("ticker", "start_date") if c not in frame.columns]
+    missing = [c for c in REQUIRED_COLUMNS if c not in frame.columns]
     if missing:
         raise ValueError(
-            f"{path.name} is missing required column(s) {missing}; the schema is "
-            "ticker,start_date,end_date with an optional id and index"
+            f"{label} is missing required column(s) {missing}; the schema is "
+            f"{','.join(MEMBERSHIP_COLUMNS)} (only the first two are required)"
         )
     if "end_date" not in frame.columns:
         frame["end_date"] = pd.NaT
@@ -424,13 +445,13 @@ def read_membership_frame(
     if frame["start_date"].isna().any():
         bad = int(frame["start_date"].isna().sum())
         raise ValueError(
-            f"{path.name} has {bad} row(s) with an unparsable start_date; dates must "
+            f"{label} has {bad} row(s) with an unparsable start_date; dates must "
             "be ISO (YYYY-MM-DD)"
         )
 
     frame["ticker"] = frame["ticker"].astype(str).str.strip().str.upper()
     if frame.empty:
-        raise ValueError(f"{path.name} contains no membership rows")
+        raise ValueError(f"{label} contains no membership rows")
 
     if "index" in frame.columns:
         names = sorted(str(v) for v in frame["index"].dropna().unique())
@@ -438,12 +459,12 @@ def read_membership_frame(
             frame = frame[frame["index"].astype(str) == index_name]
             if frame.empty:
                 raise ValueError(
-                    f"{path.name} has no rows for index {index_name!r}; it carries "
+                    f"{label} has no rows for index {index_name!r}; it carries "
                     f"{names}"
                 )
         elif len(names) > 1:
             raise ValueError(
-                f"{path.name} carries more than one index ({names}); name which one "
+                f"{label} carries more than one index ({names}); name which one "
                 "with data.membership_index rather than letting the tool pick"
             )
 
@@ -451,7 +472,7 @@ def read_membership_frame(
     backwards = ends.notna() & (ends <= frame["start_date"])
     if backwards.any():
         raise ValueError(
-            f"{path.name} has {int(backwards.sum())} spell(s) ending on or before "
+            f"{label} has {int(backwards.sum())} spell(s) ending on or before "
             "they start"
         )
 
@@ -469,15 +490,161 @@ def read_membership_frame(
     if overlapping.any():
         names = sorted(set(ordered.loc[overlapping, "ticker"]))[:6]
         raise ValueError(
-            f"{path.name} has overlapping membership spells for {names}; a ticker "
+            f"{label} has overlapping membership spells for {names}; a ticker "
             "cannot be two members of one index at the same time"
         )
 
     return Membership(
         frame=frame.reset_index(drop=True),
-        source=f"local file {path.name}",
+        source=source,
         index_name=index_name,
+        vintage=vintage,
     )
+
+
+#: Point-in-time membership lists the tool knows how to fetch, by name.
+#:
+#: Pinned URLs rather than committed files, and the reason is not convenience.
+#: An index constituent list is somebody's compilation: in the US the facts in
+#: it are free, but most indices select their members by committee judgement,
+#: which is exactly what makes a compilation copyrightable - and the EU protects
+#: databases outright, with no creativity test at all. Shipping code and a link
+#: redistributes nothing, which is how this package already treats Yahoo's
+#: prices and Ken French's factors. Nobody experiences those as friction.
+#:
+#: It also fixes staleness, which committing cannot. A frozen list silently
+#: under-reports departures as it ages, and that is the false-clean direction.
+#: A fetched one carries a vintage and the report prints it.
+MEMBERSHIP_SOURCES: dict[str, dict[str, Any]] = {
+    "sp500": {
+        "label": "S&P 500",
+        "url": (
+            "https://raw.githubusercontent.com/fja05680/sp500/master/"
+            "sp500_ticker_start_end.csv"
+        ),
+        "attribution": "fja05680/sp500 (MIT), reconstructed from index change announcements",
+        "coverage": "1996 onward",
+    },
+    "nasdaq100": {
+        "label": "NASDAQ-100",
+        "url": (
+            "https://raw.githubusercontent.com/jmccarrell/n100tickers/main/src/"
+            "nasdaq_100_ticker_history/n100-ticker-changes-{year}.yaml"
+        ),
+        "attribution": "jmccarrell/n100tickers (MIT), from Nasdaq change announcements",
+        "coverage": "2015 onward",
+        "years": (2015, 2027),
+    },
+}
+
+
+def _nasdaq100_spells(years: tuple[int, int]) -> pd.DataFrame:
+    """Rebuild NASDAQ-100 membership spells from per-year change files.
+
+    Each yearly file carries the full membership on 1 January *and* the dated
+    additions and removals that follow. So the reconstruction has a built-in
+    check: walk the changes forward from the first year and the running set must
+    equal the next year's declared list at every boundary. If it ever does not,
+    the walk is wrong and this refuses rather than returning a plausible table -
+    a membership list that is quietly wrong is the worst thing this feature
+    could produce.
+    """
+    import yaml
+
+    first, stop = years
+    docs: dict[int, dict] = {}
+    for year in range(first, stop):
+        try:
+            payload = _download(MEMBERSHIP_SOURCES["nasdaq100"]["url"].format(year=year))
+        except Exception:
+            break  # future years simply do not exist yet
+        docs[year] = yaml.safe_load(payload)
+    if not docs:
+        raise ValueError("no NASDAQ-100 change files could be fetched")
+
+    def as_date(value: Any) -> pd.Timestamp:
+        return pd.Timestamp(str(value))
+
+    opened: dict[str, pd.Timestamp] = {}
+    spells: list[tuple[str, pd.Timestamp, pd.Timestamp | None]] = []
+    members: set[str] = set()
+
+    for year in sorted(docs):
+        declared = {str(t).strip().upper() for t in docs[year]["tickers_on_Jan_1"]}
+        if not members:
+            members = set(declared)
+            opened = {t: pd.Timestamp(year=year, month=1, day=1) for t in members}
+        elif declared != members:
+            only_declared = sorted(declared - members)[:6]
+            only_walked = sorted(members - declared)[:6]
+            raise ValueError(
+                f"NASDAQ-100 reconstruction disagrees with the declared membership on "
+                f"{year}-01-01: the file lists {only_declared} which the walk does not, "
+                f"and the walk holds {only_walked} which the file does not. The change "
+                "history and the yearly snapshots are inconsistent, so no spell table "
+                "is produced."
+            )
+
+        for when, change in sorted((docs[year].get("changes") or {}).items()):
+            effective = as_date(when)
+            for ticker in change.get("difference") or []:
+                ticker = str(ticker).strip().upper()
+                if ticker in members:
+                    spells.append((ticker, opened.pop(ticker), effective))
+                    members.discard(ticker)
+            for ticker in change.get("union") or []:
+                ticker = str(ticker).strip().upper()
+                if ticker not in members:
+                    members.add(ticker)
+                    opened[ticker] = effective
+
+    for ticker in sorted(members):
+        spells.append((ticker, opened[ticker], None))
+
+    return pd.DataFrame(spells, columns=["ticker", "start_date", "end_date"])
+
+
+def load_index_membership(
+    name: str, offline: bool = False, refresh: bool = False
+) -> "Membership":
+    """Fetch a named point-in-time membership list, cached like prices.
+
+    ``qv`` ships the link and the parser, never the list. See
+    ``MEMBERSHIP_SOURCES`` for why.
+    """
+    key = str(name).strip().lower()
+    if key not in MEMBERSHIP_SOURCES:
+        raise ValueError(
+            f"unknown membership source {name!r}; known sources are "
+            f"{sorted(MEMBERSHIP_SOURCES)}. For anything else, point "
+            "`data.membership_frame` at a local file."
+        )
+    spec = MEMBERSHIP_SOURCES[key]
+    path = cache_dir() / f"membership_{key}.parquet"
+
+    cached = None if refresh else _read_cache(path)
+    if cached is not None:
+        return _build_membership(
+            cached, f"{spec['label']} ({spec['attribution']})", None,
+            f"{key} membership", _vintage_of(path),
+        )
+    if offline:
+        raise FileNotFoundError(
+            f"offline mode and no cached {spec['label']} membership list at {path}. "
+            f"{_COLD_CACHE_REMEDY}"
+        )
+
+    if key == "nasdaq100":
+        frame = _nasdaq100_spells(spec["years"])
+    else:
+        frame = pd.read_csv(io.BytesIO(_download(spec["url"])))
+
+    membership = _build_membership(
+        frame, f"{spec['label']} ({spec['attribution']})", None,
+        f"{key} membership", date.today().isoformat(),
+    )
+    membership.frame.to_parquet(path)
+    return membership
 
 
 def to_returns(prices: pd.DataFrame | pd.Series, column: str = "close") -> pd.Series:

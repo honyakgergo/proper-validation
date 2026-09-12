@@ -676,8 +676,10 @@ _ENTRIES: tuple[CatalogEntry, ...] = (
             "An instrument added the day it lists, or dropped the day it stops "
             "trading, is a position taken in the knowledge that it would exist. It is "
             "the same family of error as survivorship, with one important difference: "
-            "survivorship cannot be measured from a return series and has to be "
-            "declared, while inclusion timing is visible in the data."
+            "survivorship has to be declared, or counted against a point-in-time "
+            "membership list, because a universe of survivors looks exactly like a "
+            "universe. Inclusion timing needs neither - it is visible in the price "
+            "data itself."
         ),
         detection=(
             "The engine suite records where each instrument's history begins and ends "

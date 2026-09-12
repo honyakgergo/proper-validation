@@ -676,16 +676,17 @@ data:
   # inventing an estimate for a market it was not told about.
   asset_class: us_large_cap_etf
   frequency: daily
-  # The one question no tier can answer from the data: survivorship leaves no
-  # trace in a return series. Declare it, or the report lists it under what
-  # could not be tested.
+  # Survivorship leaves no trace in a return series. Declare it here, or set
+  # `membership` above and it is counted instead of taken on trust. Leave both
+  # out and the report lists the question under what could not be tested.
   universe_point_in_time: null
   universe_note: >
     REPLACE ME - how the instrument list was built, and when.
-  # Optional: a point-in-time membership list, relative to this file, with
-  # columns ticker,start_date,end_date (blank end = still a member). Given one,
-  # survivorship is counted rather than declared. Free reconstructions exist
-  # for the S&P 500 back to 1996 and the NASDAQ-100 back to 2015.
+  # Optional: counts survivorship instead of declaring it. `sp500` (1996 on)
+  # and `nasdaq100` (2015 on) are fetched and cached like prices; for any other
+  # index, point membership_frame at your own file with columns
+  # ticker,start_date,end_date (blank end = still a member).
+  # membership: sp500
   # membership_frame: membership.csv
   # membership_index: SP500   # only when the file carries several indices
 

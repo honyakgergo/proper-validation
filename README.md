@@ -110,7 +110,7 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[data,dev]"
 
-pytest -q                        # 1062 tests, no network, about a minute
+pytest -q                        # 1075 tests, no network, about a minute
 qv demo null_mined               # audit a synthetic strategy with a known-zero edge
 ```
 
@@ -131,8 +131,8 @@ first run has to be the one without it. Each manifest pins `start_date` and `end
 fetch returns the window the published report used rather than a moving one. Expect the last
 digits to differ anyway: Yahoo restates and Dartmouth revises, which is why every report footer
 names the vintage of the data behind it. The verdict and the findings are what should not move —
-and on a cold cache on 2026-09-12 they did not: all three examples refetched to identical verdicts
-and identical finding IDs.
+and on a cold cache on 2026-09-12 they did not: all four fetching examples refetched to identical
+verdicts and identical finding IDs.
 
 That first run asks for a universe of tickers in a loop, which Yahoo throttles by returning
 nothing — reported as "possibly delisted" whether the ticker is throttled or genuinely gone. The
@@ -173,6 +173,35 @@ and the leakage test then reports a clean bill of health it has not earned.
 
 Contracts: [`adapter_protocol.md`](skill/references/adapter_protocol.md) ·
 [`manifest_schema.md`](skill/references/manifest_schema.md)
+
+**Survivorship, counted rather than declared.** Put `membership: sp500` (or `nasdaq100`) in the
+manifest and the audit stops taking your word for how the universe was built. The list is fetched
+and cached like prices and factors — **this repository ships the link and the parser, never the
+list**, because an index constituent list is somebody's compilation and pointing at where it lives
+redistributes nothing. For any other index, `membership_frame` takes your own file in the same
+schema: `ticker,start_date,end_date`, one row per membership spell. Instead of the blanket caveat every backtest used
+to get, the finding names how many index members left during your window, how many of those are
+missing from your universe, and which tickers they were.
+
+[`real_user_tests/sp500_momentum/`](real_user_tests/sp500_momentum/) is the worked example: thirty
+S&P 500 single names, 2010-2024, audited against real constituent history. The index had **813**
+members over that window; the backtest could choose from **30**; and **310 of the 310 names that
+left the index** are absent from it. The 473 that were still members and simply were not traded
+raise nothing — holding a subset of an index is a choice, not a defect, and separating the two is
+what stops this finding firing on everybody.
+
+Coverage reaches **1996 for the S&P 500** and **2015 for the NASDAQ-100**. The footer records which
+list was used and when it was fetched, because a membership list ages — the S&P 500 changes about
+twenty times a year, and a stale list under-reports departures, which is the flattering direction. Names *still* in the index that you did not trade
+are recorded and do not raise a finding — trading a subset of an index is a choice, not a defect.
+Declaring the universe point-in-time while the list disagrees is its own finding, because a manifest
+with one disproved declaration is different evidence about all the others.
+
+Three things it will refuse to do: report a clean result from a list that records no removals (a
+table of today's members with a "date added" column reaches back decades and contains only
+survivors); claim a whole-sample result from a list covering part of the window; or tell you *how
+much* the bias is worth. It counts what was excluded, never what it would have returned — that needs
+prices for delisted names, which no free list carries.
 
 **Also:** `qv scan notebook.ipynb` for a static look-ahead scan, `qv trials notebook.ipynb` to
 excavate a lower bound on your real trial count from execution counts and parameter literals, and
@@ -304,9 +333,10 @@ independently — a strategy can absorb hundreds of basis points in fees and sti
 one session of delay, because the signal was picking up a reversal that had already reverted. Dual
 momentum keeps **94%** of its Sharpe.
 
-**Right:** survivorship cannot be measured from a return series — a universe of survivors looks
-exactly like a universe. Inclusion timing *is* visible, and is the same family of error: an
-instrument added the day it listed was chosen knowing it would exist.
+**Right:** survivorship cannot be measured from a *return series* — a universe of survivors looks
+exactly like a universe — which is why it has to be declared, or counted against a membership list
+as above. Inclusion timing needs neither: it is visible in the price data directly, and is the same
+family of error, since an instrument added the day it listed was chosen knowing it would exist.
 
 Also checked: **determinism** — unseeded randomness does not merely make a report unreproducible, it
 destroys the leakage test, which reads any difference as evidence of look-ahead — and **signal
@@ -359,11 +389,11 @@ to catch it fires on 80% of them.
   trading calendar, since the calendar is supplied rather than corrupted.
 - **`yfinance` has no delisted tickers**, so any universe from current index membership is
   survivorship-biased. Bring better data if you have it — point `data.price_frame` at any CSV or
-  Parquet and the network layer is never reached. Point `data.membership_frame` at a point-in-time
-  constituent list and the bias is **counted rather than declared**: how many names were index
-  members during your window, and how many of those that *left the index* are missing from your
-  universe. Free reconstructions reach 1996 for the S&P 500 and 2015 for the NASDAQ-100. That
-  measures the **extent** of the bias, not its size — without prices for the dead names nothing can
+  Parquet and the network layer is never reached. Set `data.membership: sp500` (or
+  `nasdaq100`, or `membership_frame` for your own list) and the bias is **counted rather than
+  declared**: how many names were index members during your window, and how many of those that
+  *left the index* are missing from your universe. That measures the **extent** of the bias, not
+  its size — without prices for the dead names nothing can
   tell you what they would have returned, and the report says so every time.
 - **Below ~30 observations** most methods degrade, and the tool refuses to print a confident number.
 - **PBO is noisy on one dataset.** Pure noise can land anywhere from 0.12 to 0.73. Read it alongside
@@ -383,7 +413,7 @@ this tool exists to question. Also flagged.
 ## Development
 
 ```bash
-pytest -q                        # 1062 tests, no network
+pytest -q                        # 1075 tests, no network
 pytest -q -m "not slow"          # skips the coverage simulations
 pytest --cov=qv                  # 97% line coverage
 ```

@@ -19,10 +19,10 @@ run honestly should not be run.
 
 ## Data provenance
 
-6. **Where did the universe list come from, and when was it constructed?** If they can point at a
-    point-in-time constituent list, put it in `data.membership_frame` and the audit counts the
-    missing names rather than accepting a declaration. Free reconstructions cover the S&P 500 from
-    1996 and the NASDAQ-100 from 2015. Do **not** accept a table of current members with a
+6. **Where did the universe list come from, and when was it constructed?** If the universe came from an index,
+    set `data.membership: sp500` or `nasdaq100` and the audit counts the missing names rather than
+    accepting a declaration - the list is fetched and cached, nothing to download by hand. For any
+    other index, point `data.membership_frame` at their own file. Do **not** accept a table of current members with a
     "date added" column: it reaches back decades and looks like history, but it contains only the
     survivors, and the audit refuses it for that reason. A list of instruments
    that exist today excludes everything that failed. Record the answer as
