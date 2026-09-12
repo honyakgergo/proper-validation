@@ -1,0 +1,65 @@
+# Short-term reversal across the NASDAQ-100's long-standing members.
+#
+#   qv validate --manifest case_studies/nasdaq_reversal/research_manifest.yaml
+#
+# The universe is every name that has been in the NASDAQ-100 continuously since
+# the membership record begins in 2015 - thirty-eight of them. That is a
+# deliberate choice and a biased one, declared below and counted against the
+# index's own constituent history.
+
+name: NASDAQ-100 short-term reversal
+
+data:
+  universe: [AAPL, ADBE, ADI, ADP, ADSK, AMAT, AMGN, AMZN, AVGO, BKNG,
+             CMCSA, COST, CSCO, FAST, GILD, GOOGL, INTC, INTU, ISRG,
+             LRCX, MAR, MDLZ, MNST, MSFT, MU, NFLX, NVDA, ORLY, PAYX,
+             PCAR, QCOM, REGN, ROST, SBUX, TSLA, TXN, VRTX]
+  benchmark: QQQ
+  start_date: "2015-01-02"
+  end_date: "2024-12-31"
+  source: yfinance
+  # Single US large-cap equities, which is the range the break-even cost below
+  # is judged against. Reversal trades a lot, so this choice does real work.
+  asset_class: us_large_cap_equity
+  frequency: daily
+
+  # The NASDAQ-100's own constituent history, fetched and cached. Coverage
+  # begins 2015, which is why the sample does.
+  membership: nasdaq100
+
+  universe_point_in_time: false
+  universe_note: >
+    The thirty-eight names in the NASDAQ-100 continuously from January 2015 to
+    the present, taken from the index's constituent history in 2026. GOOG is
+    dropped in favour of GOOGL so one company does not occupy two slots in a
+    cross-sectional rank. EA is dropped for a different reason: it is still
+    listed as a member, but the price vendor no longer carries it, so the
+    universe is thirty-seven names rather than thirty-eight.
+
+strategy:
+  adapter: qv_adapter.py:positions
+  fixed:
+    rebalance: 5
+
+chosen_parameters:
+  lookback: 5
+  top_n: 8
+
+search:
+  axes:
+    lookback: [3, 5, 10]
+    top_n: [5, 8, 12]
+  # Nine points in the grid. Declared higher because the rebalance frequency,
+  # the universe and the decision to go long-only were all settled by looking
+  # at results before the grid was written down.
+  n_trials: 30
+
+process:
+  positions_shifted: true
+  lookahead_possible: false
+  notes: >
+    The signal is a trailing return through the decision date and the book is
+    traded from the following session. That shift matters more here than for a
+    momentum strategy: the effect being harvested lives in the days immediately
+    after the selecting move, so trading at the signal's own close would book
+    the reversal before it happened.

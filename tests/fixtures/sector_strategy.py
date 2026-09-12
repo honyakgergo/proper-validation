@@ -1,4 +1,12 @@
-"""A cross-sectional momentum strategy on US sector ETFs.
+"""A cross-sectional momentum strategy on US sector ETFs - a *test fixture*.
+
+This lived in `case_studies/` as a worked example until the examples were cut
+to three genuinely different strategies, at which point it was the odd one out:
+a plainer version of the dual-momentum rotation sitting beside it. What the test
+suite actually needs from it is a clean, popular construction whose
+`momentum_score` can be monkeypatched into leaking, so the perturbation test has
+something honest to clear and something dishonest to catch. That is a fixture's
+job, so it lives with the fixtures.
 
 Written the way someone would actually write it, not as a strawman. This is
 the standard construction from the momentum literature: rank a universe by

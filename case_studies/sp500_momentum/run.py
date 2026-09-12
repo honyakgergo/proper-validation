@@ -1,11 +1,11 @@
 """Run the thirty-name S&P 500 momentum strategy through the falsifier.
 
-    python real_user_tests/sp500_momentum/run.py
-    python real_user_tests/sp500_momentum/run.py --offline
+    python case_studies/sp500_momentum/run.py
+    python case_studies/sp500_momentum/run.py --offline
 
 The equivalent one-liner, which is what the agent layer actually runs:
 
-    qv validate --manifest real_user_tests/sp500_momentum/research_manifest.yaml
+    qv validate --manifest case_studies/sp500_momentum/research_manifest.yaml
 
 This is the example that exercises the point-in-time membership check. The other
 three trade hand-picked ETFs, where index membership does not apply and
@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from real_user_tests.driver import main  # noqa: E402
+from case_studies.driver import main  # noqa: E402
 
 HERE = Path(__file__).parent
 

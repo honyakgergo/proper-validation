@@ -1170,6 +1170,22 @@ class _Dot(dict):
     def __le__(self, other):
         return False
 
+    # Arithmetic on a missing value yields another missing value, for the same
+    # reason the comparisons above return False: a template that writes
+    # `{{ f((x.ratio - 1) * 100, 1) }}` would otherwise raise mid-render and
+    # take the whole page down. That failure is worse than it sounds, because
+    # `report.json` is written first - so the run leaves behind a complete set
+    # of numbers and no document, which reads like a crash rather than like a
+    # section that could not be filled in.
+    def _missing(self, *_args):
+        return _Dot()
+
+    __add__ = __radd__ = _missing
+    __sub__ = __rsub__ = _missing
+    __mul__ = __rmul__ = _missing
+    __truediv__ = __rtruediv__ = _missing
+    __floordiv__ = __rfloordiv__ = _missing
+
     def __neg__(self):
         return _Dot()
 

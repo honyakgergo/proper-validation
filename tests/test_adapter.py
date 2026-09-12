@@ -21,8 +21,8 @@ import pytest
 
 from qv.adapter import PositionsStrategy, frame_adapter
 from qv.leakage.perturbation import perturbation_test
-from real_user_tests.dual_momentum import strategy as dual
-from real_user_tests.sector_momentum import strategy as sector
+from case_studies.dual_momentum import strategy as dual
+from tests.fixtures import sector_strategy as sector
 
 #: Long enough that a 252-session lookback plus a 21-session skip still leaves
 #: several years of usable history, so a leak has somewhere to show up.

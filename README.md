@@ -121,8 +121,8 @@ tool produces.
 **No market data is committed**, so the worked examples fetch theirs on first run:
 
 ```bash
-python real_user_tests/dual_momentum/run.py            # fetches and caches
-python real_user_tests/dual_momentum/run.py --offline  # every run after that
+python case_studies/dual_momentum/run.py            # fetches and caches
+python case_studies/dual_momentum/run.py --offline  # every run after that
 ```
 
 `--offline` refuses the network and fails loudly rather than silently refetching, which is what
@@ -183,7 +183,7 @@ schema: `ticker,start_date,end_date`, one row per membership spell. Instead of t
 to get, the finding names how many index members left during your window, how many of those are
 missing from your universe, and which tickers they were.
 
-[`real_user_tests/sp500_momentum/`](real_user_tests/sp500_momentum/) is the worked example: thirty
+[`case_studies/sp500_momentum/`](case_studies/sp500_momentum/) is the worked example: thirty
 S&P 500 single names, 2010-2024, audited against real constituent history. The index had **813**
 members over that window; the backtest could choose from **30**; and **310 of the 310 names that
 left the index** are absent from it. The 473 that were still members and simply were not traded
@@ -219,7 +219,7 @@ rewriting your research and implicitly blessing the result.
 
 ## A worked example
 
-[`real_user_tests/dual_momentum/`](real_user_tests/dual_momentum/) is a serious strategy: sector
+[`case_studies/dual_momentum/`](case_studies/dual_momentum/) is a serious strategy: sector
 rotation with an absolute-momentum filter, a bond and gold defensive leg, and volatility targeting —
 every component from published work rather than found by searching the data. Over twenty years of
 real prices it **beats the S&P 500 on Sharpe and halves the worst drawdown.**
@@ -349,13 +349,40 @@ reason available.
 
 | Report | Verdict | Findings |
 |---|---|---|
-| [Statistical only](real_user_tests/dual_momentum/report_statistical/) | Materially weakened | alpha t = 0.30, PBO 59.1% |
-| [Engine only](real_user_tests/dual_momentum/report_engine/) | **Survived** | none |
-| [Both](real_user_tests/dual_momentum/) | Materially weakened | the two above |
+| [Statistical only](case_studies/dual_momentum/report_statistical/) | Materially weakened | alpha t = 0.30, PBO 59.1% |
+| [Engine only](case_studies/dual_momentum/report_engine/) | **Survived** | none |
+| [Both](case_studies/dual_momentum/) | Materially weakened | the two above |
 
 **Impeccably implemented and statistically weak.** One blended verdict says "materially weakened"
 and leaves you with no idea what to fix — when the answer is that there is nothing to fix in the
 code, and the edge is not there.
+
+---
+
+## Three worked examples, which fail differently
+
+[`case_studies/`](case_studies/) holds three real strategies on real data. Each ships the
+theory, the strategy as plain Python, the manifest, and the report — `report.html` to read and
+`report.json` authoritative for every number on it.
+
+**[Dual momentum with volatility targeting](case_studies/dual_momentum/)** — the one above.
+Sector rotation with an absolute-momentum filter, a defensive bond and gold leg, and volatility
+targeting. It beats the S&P 500 on Sharpe and halves the worst drawdown, and the engine analysis
+returns **survived**. The statistical suite still weakens it, on an alpha of 0.47% a year at
+t = 0.30.
+
+**[S&P 500 cross-sectional momentum](case_studies/sp500_momentum/)** — the ordinary mistake.
+Textbook 12-1 momentum on thirty large caps, with the universe taken from index membership *today*.
+Fifteen years of stock picking returns a slightly worse Sharpe than the index, and the survivorship
+is counted rather than caveated: the index had **813** members over the window, this backtest could
+choose from **30**, and **310 of the 310 names that left it** are missing. **Falsified.**
+
+**[NASDAQ-100 short-term reversal](case_studies/nasdaq_reversal/)** — the uncomfortable one. It
+*passes* everything the statistics can check: alpha of 12.6% a year at **t = 2.97**, deflated Sharpe
+0.993, PBO 0.396, a clean engine, and a Sharpe of **1.10** against QQQ's 0.81. It is weakened on
+survivorship alone — 98 of the 98 names that left the index are absent — which makes that 1.10 an
+upper bound rather than an estimate. A validator that only ever fired on obviously bad strategies
+would be telling you nothing you could not see yourself.
 
 ---
 

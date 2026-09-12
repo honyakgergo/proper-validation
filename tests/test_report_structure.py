@@ -531,3 +531,73 @@ class TestDegradesWithoutSections:
         for _, rows in _tables(html):
             for row in rows:
                 assert all(c not in ("", "nan", "None") for c in row), row
+
+
+class TestMissingValuesNeverCrashTheRender:
+    """A section that is absent must cost one sentence, not the whole document.
+
+    Reported from a blind audit: `qv validate` wrote `report.json` and then died
+    rendering the HTML, leaving a complete set of numbers behind and no page to
+    read them in. That failure reads like a crash rather than like a section
+    that could not be filled in, which is the wrong impression by a wide margin.
+
+    `_Dot` already returned False from every comparison for exactly this reason.
+    Arithmetic was the gap.
+    """
+
+    def test_arithmetic_on_a_missing_value_yields_a_missing_value(self):
+        from qv.report.render import _Dot
+
+        section = _Dot({"present": 2.0})
+        assert section.present == 2.0
+        for expression in (
+            section.absent - 1,
+            1 - section.absent,
+            (section.absent - 1) * 100,
+            section.absent * 100,
+            section.absent / 2,
+            2 / section.absent,
+            -section.absent,
+        ):
+            assert isinstance(expression, _Dot)
+            assert not expression, "a missing value must stay falsy through arithmetic"
+
+    def test_a_present_value_is_untouched(self):
+        """The paired must-pass: the guard must not swallow real arithmetic."""
+        from qv.report.render import _Dot
+
+        section = _Dot({"ratio": 1.25})
+        assert abs((section.ratio - 1) * 100 - 25.0) < 1e-9
+
+    def test_a_report_renders_with_a_gutted_section(self):
+        """Through the real template, not a synthetic one.
+
+        Strip the keys the null-max paragraph does arithmetic on and the page
+        must still render - one sentence poorer, not absent.
+        """
+        import copy
+
+        from qv.audit import AuditInputs, run_audit
+
+        gen = np.random.default_rng(31)
+        n = 800
+        returns = gen.normal(0.0004, 0.01, n)
+        report = run_audit(
+            AuditInputs(
+                returns=returns,
+                trial_returns=gen.normal(0.0004, 0.01, (n, 6)),
+                n_trials=6,
+                n_boot=150,
+                seed=3,
+            )
+        )
+        section = report.sections.get("null_max")
+        assert section, "fixture must actually produce the section being gutted"
+
+        gutted = copy.deepcopy(report)
+        for key in ("agreement_ratio", "analytic_disagrees", "disagreement_direction"):
+            gutted.sections["null_max"].pop(key, None)
+
+        html = render_html(gutted, build_charts(gutted, returns=returns), None)
+        assert "<html" in html.lower()
+        assert "nan" not in _text(_strip_svg(html)).lower()

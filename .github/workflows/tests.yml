@@ -64,6 +64,13 @@ jobs:
           qv explain --markdown > /tmp/catalog.md
           diff -u skill/references/findings_catalog.md /tmp/catalog.md
 
+      - name: The committed reports match the source that produced them
+        # The footer carries a digest over qv/**/*.py, so any source change
+        # makes every committed report stale. That is the easiest mistake to
+        # make here and the hardest to notice by eye, because a stale report
+        # still renders perfectly.
+        run: python docs/check_reports.py
+
       - name: The skill installs where Claude Code looks for it
         run: |
           qv skill install --target /tmp/qv_skill

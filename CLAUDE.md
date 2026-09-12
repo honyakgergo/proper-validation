@@ -112,13 +112,17 @@ they are artifacts people read without running anything, so a stale report is a
 wrong report:
 
 ```bash
-python real_user_tests/dual_momentum/run.py --offline
-python real_user_tests/dual_momentum/run.py --offline --suite statistical
-python real_user_tests/dual_momentum/run.py --offline --suite engine
-python real_user_tests/sector_momentum/run.py --offline
-python real_user_tests/sp500_momentum/run.py --offline
+python case_studies/dual_momentum/run.py --offline
+python case_studies/dual_momentum/run.py --offline --suite statistical
+python case_studies/dual_momentum/run.py --offline --suite engine
+python case_studies/sp500_momentum/run.py --offline
+python case_studies/nasdaq_reversal/run.py --offline
 python examples/01_mined_noise/mine.py --offline
 ```
+
+CI enforces this: `docs/check_reports.py` compares every committed report's footer digest against
+the source in the tree, and fails if any is stale. A stale report still renders perfectly, which is
+why it needs a machine to catch rather than an eye.
 
 The trigger is any source change, not only one that alters a rendered number:
 the footer carries a digest over `qv/**/*.py`, so an edit to a docstring moves

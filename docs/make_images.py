@@ -27,7 +27,7 @@ from qv.report import charts as ch  # noqa: E402
 from qv.report.render import build_charts  # noqa: E402
 
 HERE = Path(__file__).parent
-MANIFEST = HERE.parent / "real_user_tests" / "dual_momentum" / "research_manifest.yaml"
+MANIFEST = HERE.parent / "case_studies" / "dual_momentum" / "research_manifest.yaml"
 
 #: Only the charts the README actually shows. Rendering all nine would leave
 #: unreferenced files in the repository for someone to wonder about later.

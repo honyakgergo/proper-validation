@@ -10,9 +10,32 @@ positions are shifted. **The universe is the problem**, and this is the example
 that shows what that costs.
 
 ```bash
-python real_user_tests/sp500_momentum/run.py            # fetches and caches
-python real_user_tests/sp500_momentum/run.py --offline  # every run after that
+python case_studies/sp500_momentum/run.py            # fetches and caches
+python case_studies/sp500_momentum/run.py --offline  # every run after that
 ```
+
+## The theory
+
+Cross-sectional momentum is among the most replicated effects in the literature.
+Jegadeesh and Titman (1993) showed that ranking US stocks on their trailing
+six-to-twelve-month return and holding the winners earned a premium that survived
+the risk adjustments available at the time; Asness, Moskowitz and Pedersen (2013)
+found the same pattern across asset classes and countries. The standard
+construction skips the most recent month, because the short-horizon reversal that
+dominates the last few weeks runs against the medium-horizon effect being
+harvested.
+
+So the prior going in is not that this should fail. It is a real, published,
+widely traded effect, implemented here exactly as the literature describes it.
+The question the audit answers is what is left of it once the universe, the
+factor exposures and the trial count are all accounted for.
+
+## The strategy
+
+[`qv_adapter.py`](qv_adapter.py) — rank on 12-1 month momentum, hold the top six
+equal weight, rebalance every 21 sessions, trade from the session after the
+signal. Long only, no leverage. [`research_manifest.yaml`](research_manifest.yaml)
+declares the grid searched and where the data came from.
 
 ## The universe was built the way universes are actually built
 
@@ -26,6 +49,11 @@ membership does not apply and survivorship can only be *declared*. This one is
 audited against `membership: sp500` — point-in-time constituent history
 reconstructed from index change announcements, fetched on first run and cached
 outside the repository — so the question is **counted**.
+
+## The report
+
+[`report.html`](report.html) is the page; [`report.json`](report.json) is
+authoritative for every number on it.
 
 ## What the audit found
 

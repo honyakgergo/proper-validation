@@ -1,7 +1,7 @@
 """Run the dual-momentum strategy through the falsifier.
 
-    python real_user_tests/dual_momentum/run.py
-    python real_user_tests/dual_momentum/run.py --offline
+    python case_studies/dual_momentum/run.py
+    python case_studies/dual_momentum/run.py --offline
 
 Everything this script used to do by hand - load the universe, load SPY and
 the Fama-French factors, evaluate the reported configuration, re-run all 54
@@ -9,7 +9,7 @@ declared configurations to rebuild the trial matrix and parameter surface, wrap
 the strategy for the behavioural leakage test - now lives in `qv.pipeline`,
 driven by `research_manifest.yaml`. The equivalent one-liner is:
 
-    qv validate --manifest real_user_tests/dual_momentum/research_manifest.yaml
+    qv validate --manifest case_studies/dual_momentum/research_manifest.yaml
 
 This script survives for the performance preamble it prints on the way.
 """
@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from real_user_tests.driver import main  # noqa: E402
+from case_studies.driver import main  # noqa: E402
 
 HERE = Path(__file__).parent
 

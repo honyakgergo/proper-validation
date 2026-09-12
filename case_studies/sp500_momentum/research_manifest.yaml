@@ -1,6 +1,6 @@
 # Thirty S&P 500 names, cross-sectional momentum.
 #
-#   qv validate --manifest real_user_tests/sp500_momentum/research_manifest.yaml
+#   qv validate --manifest case_studies/sp500_momentum/research_manifest.yaml
 #
 # The universe was assembled the way most universes are assembled: by taking names
 # that are in the index today and have been for the whole sample. That is the

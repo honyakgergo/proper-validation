@@ -5,11 +5,11 @@ basis — by far less than the first version of this page claimed — and the au
 finds two real problems on top of that.
 
 ```bash
-python real_user_tests/dual_momentum/run.py
-python real_user_tests/dual_momentum/run.py --offline
+python case_studies/dual_momentum/run.py
+python case_studies/dual_momentum/run.py --offline
 ```
 
-## What it is
+## The theory
 
 Three effects, each taken from published work rather than found by searching
 this data:
@@ -27,6 +27,15 @@ Monthly rebalance, signals from trailing windows only, positions traded from
 the session after the signal. All 54 configurations examined are declared, and
 the universe is declared point-in-time: the nine sector funds and IEF/GLD all
 trade for the whole sample, so nothing enters it with hindsight.
+
+## The strategy
+
+[`strategy.py`](strategy.py) holds the construction;
+[`research_manifest.yaml`](research_manifest.yaml) declares the grid searched and
+where the data came from. The report is [`report.html`](report.html), with
+[`report.json`](report.json) authoritative for every number on the page, and the
+two suites split out into [`report_statistical/`](report_statistical/) and
+[`report_engine/`](report_engine/).
 
 ## It beats SPY, by less than it looks
 
@@ -188,9 +197,9 @@ differently. The statistical suite weakens it; the **engine analysis clears it
 completely** — no findings, nothing it could not test.
 
 ```bash
-python real_user_tests/dual_momentum/run.py --suite engine
-python real_user_tests/dual_momentum/run.py --suite statistical
-python real_user_tests/dual_momentum/run.py                    # both
+python case_studies/dual_momentum/run.py --suite engine
+python case_studies/dual_momentum/run.py --suite statistical
+python case_studies/dual_momentum/run.py                    # both
 ```
 
 All three reports are committed, and the contrast is the point: there is
