@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from qv.provenance import git_commit, package_version, source_digest, source_identity
 
 SHA = "ab68694f0e0d1c2b3a4958677889aabbccddeeff"
@@ -207,3 +209,43 @@ class TestIdentity:
         import qv
 
         assert qv.__version__ == package_version()
+
+
+class TestLineEndingsAreNormalised:
+    """Every source file must be LF, because the digest hashes bytes.
+
+    `source_digest` hashes file bytes deliberately - its docstring says so, and
+    the reasoning is sound: a CRLF checkout genuinely is a different file. The
+    consequence is that a working tree which drifts to CRLF produces reports
+    whose footer digest no checkout of any commit can reproduce, which is
+    exactly the identification the footer exists to provide.
+
+    This is easy to do by accident on Windows: `Path.write_text` opens in text
+    mode, so it translates `\n` to `\r\n`, and any script that rewrites a
+    source file flips that file's line endings without saying so. It happened,
+    it produced six committed reports nobody else could reproduce, and it was
+    caught by CI rather than locally. Hence this test.
+
+    `.gitattributes` sets `* text=auto eol=lf`, so LF is what every checkout
+    should hold on every platform.
+    """
+
+    def test_no_python_file_has_carriage_returns(self):
+        import subprocess
+
+        root = Path(__file__).resolve().parents[1]
+        listed = subprocess.run(
+            ["git", "ls-files", "*.py"],
+            cwd=root, capture_output=True, text=True, check=False,
+        )
+        if listed.returncode != 0:  # pragma: no cover - not a git checkout
+            pytest.skip("not a git checkout")
+
+        crlf = [
+            name for name in listed.stdout.split()
+            if b"\r\n" in (root / name).read_bytes()
+        ]
+        assert not crlf, (
+            "these files hold CRLF, which changes the source digest and makes "
+            f"every committed report unreproducible: {crlf}"
+        )

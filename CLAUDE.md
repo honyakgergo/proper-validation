@@ -121,7 +121,16 @@ python examples/01_mined_noise/mine.py --offline
 ```
 
 CI enforces this: `docs/check_reports.py` compares every committed report's footer digest against
-the source in the tree, and fails if any is stale. A stale report still renders perfectly, which is
+the source in the tree, and fails if any is stale.
+
+**On Windows, watch the line endings.** The digest hashes bytes, so a CRLF file digests differently
+from the LF one git stores - and `Path.write_text` opens in text mode, which silently turns every
+`
+` into `
+`. A script that rewrites a source file therefore invalidates the digest without
+touching a single character of code. `.gitattributes` sets `eol=lf` for exactly this reason, and
+`tests/test_provenance.py::TestLineEndingsAreNormalised` fails locally rather than letting CI find
+it. Write source files as bytes, or normalise afterwards. A stale report still renders perfectly, which is
 why it needs a machine to catch rather than an eye.
 
 The trigger is any source change, not only one that alters a rendered number:
