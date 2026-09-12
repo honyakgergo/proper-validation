@@ -49,6 +49,9 @@ jobs:
       - name: The CLI is importable and its commands resolve
         run: |
           qv --help
+          # The footer's reproducibility claim rests on this resolving from an
+          # installed console script, not just under `python -m qv.cli`.
+          qv --version
           qv explain SELECT-DEFLATED-SHARPE-FAILS
           qv demo null_mined --observations 400 --out /tmp/qv_ci_demo
           test -f /tmp/qv_ci_demo/report.html

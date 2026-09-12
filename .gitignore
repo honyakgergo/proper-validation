@@ -69,3 +69,11 @@ desktop.ini
 PLAN.md
 PROGRESS.md
 STATUS.md
+
+# Strategy sandbox. Somewhere to run the validator against new strategies
+# without committing anything: no reports, no README essays, no artifact to
+# keep honest. Committing an example is a permanent cost - the prose has to be
+# maintained and every source change regenerates its reports - so exploration
+# lives here and only a deliberate promotion moves anything into
+# real_user_tests/.
+sandbox/

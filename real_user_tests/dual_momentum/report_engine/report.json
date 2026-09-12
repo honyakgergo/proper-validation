@@ -13,7 +13,7 @@
   "not_tested": [],
   "findings": [],
   "provenance": {
-    "generated_utc": "2026-09-11T14:32:09+00:00",
+    "generated_utc": "2026-09-11T15:13:36+00:00",
     "data_hash": "02ef385cf6be13c9",
     "seed": 0,
     "n_boot": 2000,
@@ -22,8 +22,8 @@
     "platform": "Windows-11-10.0.26200-SP0",
     "numpy": "2.5.3",
     "version": "0.1.0",
-    "commit": "ab68694",
-    "source_digest": "fde003c7e130",
+    "commit": "a7222c3",
+    "source_digest": "b0afb459ce9d",
     "data_vintages": {
       "prices": "2026-09-09",
       "factors": "2026-09-10",

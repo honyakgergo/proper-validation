@@ -55,6 +55,20 @@ _MOM_URL = (
 )
 
 
+#: What to do about a cold cache, appended to both offline failures.
+#:
+#: This is the wall a newcomer hits first. Every regeneration command in
+#: `CLAUDE.md`, in both `run.py` files and in `docs/make_images.py` passes
+#: `--offline`, which is exactly the flag that refuses to fetch - so on a
+#: fresh clone the documented command is the one guaranteed to fail, and the
+#: fix is a single run without the flag. Saying so here costs one sentence;
+#: leaving it out costs somebody an afternoon.
+_COLD_CACHE_REMEDY = (
+    "Run the same command once without --offline to fetch and cache it; every "
+    "run after that can refuse the network."
+)
+
+
 def cache_dir() -> Path:
     """Where downloads live. Gitignored by construction - it is outside the repo."""
     path = Path(user_cache_dir("qv", "proper_validation")) / "data"
@@ -128,7 +142,8 @@ def load_prices(
         return CachedFrame(cached, f"cache:{ticker}", _vintage_of(path), True, path)
     if offline:
         raise FileNotFoundError(
-            f"offline mode and no cached copy of {ticker} for {start}..{end} at {path}"
+            f"offline mode and no cached copy of {ticker} for {start}..{end} at "
+            f"{path}. {_COLD_CACHE_REMEDY}"
         )
 
     try:
@@ -216,7 +231,10 @@ def load_fama_french(
 
     if cached is None:
         if offline:
-            raise FileNotFoundError(f"offline mode and no cached factor file at {path}")
+            raise FileNotFoundError(
+                f"offline mode and no cached factor file at {path}. "
+                f"{_COLD_CACHE_REMEDY}"
+            )
         five = _parse_french_zip(_download(_FF5_URL))
         momentum = _parse_french_zip(_download(_MOM_URL))
         momentum.columns = ["Mom" if c.lower().startswith("mom") else c for c in momentum.columns]

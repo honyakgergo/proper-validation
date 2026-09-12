@@ -91,7 +91,7 @@ If you changed `qv/findings.py`, regenerate the catalog the skill ships:
 qv explain --markdown > skill/references/findings_catalog.md
 ```
 
-If you changed anything a report renders, regenerate the committed examples —
+If you changed **anything under `qv/`**, regenerate the committed examples —
 they are artifacts people read without running anything, so a stale report is a
 wrong report:
 
@@ -103,8 +103,26 @@ python real_user_tests/sector_momentum/run.py --offline
 python examples/01_mined_noise/mine.py --offline
 ```
 
+The trigger is any source change, not only one that alters a rendered number:
+the footer carries a digest over `qv/**/*.py`, so an edit to a docstring moves
+it. That is the cost of an identifier precise enough to be worth printing —
+a report whose digest matches no checkout that exists identifies nothing.
+
 `--offline` refuses the network and fails loudly rather than silently
 refetching, which would quietly change the numbers under a published report.
+
+**On a cold cache, run each of those once without `--offline` first.** No market
+data is committed — `qv/data/loaders.py` fetches it and caches it outside the
+repo, and every manifest pins `start_date` and `end_date`, so a fetch returns
+the same window rather than a moving one. The first run populates the cache;
+every run after it can refuse the network. Skipping that step means the
+documented command is the one guaranteed to fail, which is why both offline
+failures now name the remedy in the error itself.
+
+A refetch will not reproduce the published figures to the last digit — Yahoo
+restates and Dartmouth revises, which is why the footer prints data vintages.
+What should be stable across vintages is the **verdict and the finding IDs**;
+if one of those moves, that is a real regression and not drift.
 
 ## Testing conventions
 

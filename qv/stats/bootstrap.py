@@ -108,6 +108,15 @@ def stationary_bootstrap_indices(
     Each step either advances one position (probability ``1 - 1/b``) or jumps
     to a fresh uniform position (probability ``1/b``), giving geometrically
     distributed blocks with mean length ``b``.
+
+    Memory is ``n_boot * n`` and deliberately left unguarded. About 17 bytes a
+    cell across the three arrays below, so the default 2,000 replications over
+    twenty years of daily data is ~170 MB, and ``--n-boot 100000`` would be
+    ~8.5 GB. That is the same shape as the max-Sharpe null OOM, with one
+    difference that decides it: nothing tells users to inflate ``n_boot``,
+    whereas ``--trials`` is a number the documentation asks them to overstate.
+    A cap would be a limit invented for a problem nobody has; the cost is
+    recorded here instead so that raising it is an informed choice.
     """
     if n < 1:
         raise ValueError(f"n must be at least 1, got {n}")

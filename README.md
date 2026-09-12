@@ -88,6 +88,10 @@ anywhere without adding numpy, pandas, scipy and statsmodels pins to the environ
 research runs in. **Do not use a virtualenv inside the clone for this** — the command would then
 exist only while that environment is active, and the whole point is to run it somewhere else.
 
+If you have neither, `python -m pip install --user pipx && python -m pipx ensurepath` gets you one.
+`qv skill install` checks whether `qv` will actually resolve from another directory and tells you
+if it will not, so you find out here rather than halfway through an audit.
+
 Take the `[data]` extra here even though the engine never needs the network: `qv adapter init`
 scaffolds a manifest that fetches prices with `yfinance`, so without it the first file the agent
 generates cannot run.
@@ -113,6 +117,20 @@ qv demo null_mined               # audit a synthetic strategy with a known-zero 
 `data` adds `yfinance`, needed only to *fetch* prices — the statistical core installs and runs with
 no network stack at all. `qv demo` writes a self-contained `report.html`; open it to see what the
 tool produces.
+
+**No market data is committed**, so the worked examples fetch theirs on first run:
+
+```bash
+python real_user_tests/dual_momentum/run.py            # fetches and caches
+python real_user_tests/dual_momentum/run.py --offline  # every run after that
+```
+
+`--offline` refuses the network and fails loudly rather than silently refetching, which is what
+you want once a report is published — but on a fresh clone there is nothing cached yet, so the
+first run has to be the one without it. Each manifest pins `start_date` and `end_date`, so the
+fetch returns the window the published report used rather than a moving one. Expect the last
+digits to differ anyway: Yahoo restates and Dartmouth revises, which is why every report footer
+names the vintage of the data behind it. The verdict and the findings are what should not move.
 
 ---
 

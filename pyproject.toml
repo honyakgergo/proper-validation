@@ -40,7 +40,7 @@ dependencies = [
 [project.optional-dependencies]
 # The engine never touches the network. Loaders are an opt-in extra so that
 # the whole statistical core installs and tests without any network stack.
-data = ["yfinance>=0.2.40", "pandas-datareader>=0.10"]
+data = ["yfinance>=0.2.40"]
 dev = ["pytest>=7.4", "pytest-cov>=4.1"]
 
 [project.urls]

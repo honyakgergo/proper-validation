@@ -64,6 +64,17 @@ class TestCacheAndSchema:
         with pytest.raises(FileNotFoundError, match="offline mode"):
             load_prices("NOTATICKER_XYZ", "1990-01-01", "1990-02-01", offline=True)
 
+    def test_the_offline_failure_names_its_own_remedy(self):
+        """The first wall a newcomer hits, and the one place to say the fix.
+
+        Every regeneration command in the documentation passes `--offline`,
+        which is precisely the flag that refuses to fetch, so on a fresh clone
+        the documented command is the one guaranteed to fail. An error that
+        states the problem and not the remedy sends someone reading source.
+        """
+        with pytest.raises(FileNotFoundError, match="without --offline"):
+            load_prices("NOTATICKER_XYZ", "1990-01-01", "1990-02-01", offline=True)
+
     def test_cached_frame_summarises_itself(self, price_frame):
         cached = CachedFrame(price_frame, "test", "2024-01-01", True)
         d = cached.to_dict()
@@ -113,6 +124,17 @@ class TestFrenchParser:
     def test_offline_without_a_cached_factor_file(self, monkeypatch, tmp_path):
         monkeypatch.setattr("qv.data.loaders.cache_dir", lambda: tmp_path)
         with pytest.raises(FileNotFoundError, match="offline mode"):
+            load_fama_french(offline=True)
+
+    def test_the_factor_failure_names_the_same_remedy(self, monkeypatch, tmp_path):
+        """Both cold-cache failures, not just the price one.
+
+        A clone that has fetched prices but not factors fails here instead,
+        and a remedy that appears on only one of the two paths is a remedy
+        half the people who need it will never see.
+        """
+        monkeypatch.setattr("qv.data.loaders.cache_dir", lambda: tmp_path)
+        with pytest.raises(FileNotFoundError, match="without --offline"):
             load_fama_french(offline=True)
 
 
