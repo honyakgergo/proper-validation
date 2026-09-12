@@ -121,7 +121,7 @@
     }
   ],
   "provenance": {
-    "generated_utc": "2026-09-11T15:13:24+00:00",
+    "generated_utc": "2026-09-12T10:05:18+00:00",
     "data_hash": "2499871afbd4bf4d",
     "seed": 0,
     "n_boot": 2000,
@@ -130,11 +130,11 @@
     "platform": "Windows-11-10.0.26200-SP0",
     "numpy": "2.5.3",
     "version": "0.1.0",
-    "commit": "a7222c3",
-    "source_digest": "b0afb459ce9d",
+    "commit": "45c4e64",
+    "source_digest": "e5b1633f8cef",
     "data_vintages": {
       "prices": "2026-09-09",
-      "factors": "2026-09-10",
+      "factors": "2026-09-12",
       "benchmark": "2026-09-09"
     }
   },

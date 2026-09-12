@@ -110,7 +110,7 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[data,dev]"
 
-pytest -q                        # ~990 tests, no network, about a minute
+pytest -q                        # 1001 tests, no network, about a minute
 qv demo null_mined               # audit a synthetic strategy with a known-zero edge
 ```
 
@@ -130,7 +130,14 @@ you want once a report is published — but on a fresh clone there is nothing ca
 first run has to be the one without it. Each manifest pins `start_date` and `end_date`, so the
 fetch returns the window the published report used rather than a moving one. Expect the last
 digits to differ anyway: Yahoo restates and Dartmouth revises, which is why every report footer
-names the vintage of the data behind it. The verdict and the findings are what should not move.
+names the vintage of the data behind it. The verdict and the findings are what should not move —
+and on a cold cache on 2026-09-12 they did not: all three examples refetched to identical verdicts
+and identical finding IDs.
+
+That first run asks for a universe of tickers in a loop, which Yahoo throttles by returning
+nothing — reported as "possibly delisted" whether the ticker is throttled or genuinely gone. The
+loader backs off and retries rather than failing on the eighth name, and keeps whatever it already
+cached, so a re-run resumes.
 
 ---
 
@@ -328,12 +335,15 @@ levered beta, and one with a **real, planted edge** — and audits 25 replicatio
 
 | | Result |
 |---|---|
-| Detection across the eight no-edge labels | **95%** |
+| Detection across the eight no-edge labels | **96%** |
 | False positives on the label with a real edge | **0%** |
 | Weakest label (`regime_fluke`) | 80%, and reported as such |
 
 The second row matters as much as the first: the tool is not a pessimism generator. Full table with
-Wilson intervals in [`benchmarks/roc_results.md`](benchmarks/roc_results.md).
+Wilson intervals in [`benchmarks/roc_results.md`](benchmarks/roc_results.md), which also reports how
+often the *expected* finding fired rather than merely some finding — a distinction worth having,
+because `levered_beta` is flagged on every replication while the attribution test that is supposed
+to catch it fires on 80% of them.
 
 ---
 
@@ -365,7 +375,7 @@ this tool exists to question. Also flagged.
 ## Development
 
 ```bash
-pytest -q                        # ~990 tests, no network
+pytest -q                        # 1001 tests, no network
 pytest -q -m "not slow"          # skips the coverage simulations
 pytest --cov=qv                  # 97% line coverage
 ```

@@ -20,11 +20,11 @@ generator. Intervals are Wilson 95%.
 | `leaky_scaler` | none | 100% | [0.87, 1.00] | 100% | 5.8 |
 | `regime_fluke` | none | 80% | [0.61, 0.91] | 80% | 2.8 |
 | `cost_fragile` | none | 100% | [0.87, 1.00] | 100% | 4.0 |
-| `levered_beta` | none | 88% | [0.70, 0.96] | 88% | 1.9 |
+| `levered_beta` | none | 100% | [0.87, 1.00] | 100% | 2.9 |
 | `lottery_ticket` | none | 100% | [0.87, 1.00] | 100% | 2.5 |
 | `genuine_weak` | **real** | 0% | [0.00, 0.13] | 100% | 1.8 |
 
-**Detection across the 8 no-edge labels:** 190 of 200 replications flagged (95%).
+**Detection across the 8 no-edge labels:** 193 of 200 replications flagged (96%).
 
 **False positives on the real edge:** 0 of 25 (0%). Every one of these is the tool being wrong in the direction that matters most.
 

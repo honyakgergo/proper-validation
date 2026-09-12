@@ -6,10 +6,17 @@ computes turnover from the actual position series and applies explicit cost
 models to it, so the report can state what the strategy costs rather than what
 its author hoped it would cost.
 
-Square-root market impact is deliberately absent. It needs average daily
-volume, which this package does not ask for, and shipping the formula without
-its input would give a model that quietly degenerates into a constant. Break-
-even cost in basis points carries the argument without it.
+Square-root market impact is deliberately absent, and the reason is narrower
+than "no data". Impact is order size measured against available liquidity, so
+it needs both terms. Volume is fetched - it is one of ``CANONICAL_COLUMNS`` -
+but it stops at the data-quality scan and never reaches ``AuditInputs``, and
+the intended trading size is only asked for in the interview, where the answer
+is recorded for a reader to judge rather than modelled. Supplying one term
+without the other gives a model that quietly degenerates into a constant,
+which is the fixed-bps model already here wearing a more impressive name.
+Break-even cost in basis points carries the argument without either: it says
+what the strategy can afford to pay, and leaves the reader to decide whether
+their size can trade inside it.
 """
 
 from __future__ import annotations

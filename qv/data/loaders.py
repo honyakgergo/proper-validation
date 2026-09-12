@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import io
 import re
+import sys
+import time
 import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -67,6 +69,22 @@ _COLD_CACHE_REMEDY = (
     "Run the same command once without --offline to fetch and cache it; every "
     "run after that can refuse the network."
 )
+
+#: Seconds to wait before each retry of a price download.
+#:
+#: Yahoo throttles a burst of requests and reports the refusal as an empty
+#: frame, which yfinance surfaces as "possibly delisted" - indistinguishable
+#: from a ticker that really has gone. Populating a cold cache is exactly a
+#: burst: the worked examples walk universes of nine to forty-six names in a
+#: loop, and measured here, an unthrottled walk died on the eighth ticker. So
+#: the documented first run - the one a fresh clone has no choice but to make -
+#: was the one that failed. Backing off and retrying carried the same walk to
+#: completion.
+#:
+#: Bounded deliberately. Five waits totalling about four minutes is long enough
+#: to outlast throttling and short enough that a genuinely bad ticker still
+#: fails rather than hanging a run indefinitely.
+_FETCH_BACKOFF_SECONDS = (5, 15, 30, 60, 120)
 
 
 def cache_dir() -> Path:
@@ -153,11 +171,29 @@ def load_prices(
             "fetching prices needs the optional data extra: pip install 'proper-validation[data]'"
         ) from exc
 
-    raw = yfinance.download(
-        ticker, start=str(start), end=str(end), progress=False, auto_adjust=True
-    )
+    raw = None
+    for attempt, wait in enumerate((0,) + _FETCH_BACKOFF_SECONDS):
+        if wait:
+            print(
+                f"no data for {ticker} yet; likely throttling, retrying in {wait}s "
+                f"({attempt}/{len(_FETCH_BACKOFF_SECONDS)})",
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(wait)
+        raw = yfinance.download(
+            ticker, start=str(start), end=str(end), progress=False, auto_adjust=True
+        )
+        if raw is not None and not raw.empty:
+            break
     if raw is None or raw.empty:
-        raise ValueError(f"no data returned for {ticker} between {start} and {end}")
+        raise ValueError(
+            f"no data returned for {ticker} between {start} and {end}, after "
+            f"{len(_FETCH_BACKOFF_SECONDS)} retries. Either the ticker is wrong "
+            f"or delisted, or the vendor is still refusing the request - it "
+            f"reports both the same way. Any cached tickers were kept, so "
+            f"re-running resumes rather than starting over."
+        )
 
     # yfinance returns a MultiIndex column frame for a single ticker in recent
     # versions; flatten to the documented schema either way.

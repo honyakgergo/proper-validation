@@ -80,7 +80,7 @@ commands (`status`, `diff`, `log`) are fine.
 ## Before you hand work back
 
 ```bash
-pytest -q                      # must stay green; ~990 tests, no network
+pytest -q                      # must stay green; 1001 tests, no network
 pytest -q -m "not slow"        # faster, skips the coverage simulations
 pytest --cov=qv                # coverage should not fall
 ```
@@ -119,10 +119,20 @@ every run after it can refuse the network. Skipping that step means the
 documented command is the one guaranteed to fail, which is why both offline
 failures now name the remedy in the error itself.
 
+That first run is a burst of requests, and Yahoo throttles a burst by returning
+an empty frame — which `yfinance` reports as "possibly delisted", identical to a
+ticker that really has gone. Measured on a cold cache, an unthrottled walk of
+the dual-momentum universe died on the eighth ticker. `load_prices` therefore
+backs off and retries on a bounded schedule, and its final error names both
+causes rather than asserting either. A partial cache is kept, so a re-run
+resumes.
+
 A refetch will not reproduce the published figures to the last digit — Yahoo
 restates and Dartmouth revises, which is why the footer prints data vintages.
-What should be stable across vintages is the **verdict and the finding IDs**;
-if one of those moves, that is a real regression and not drift.
+What should be stable across vintages is the **verdict and the finding IDs**.
+That was measured on 2026-09-12 against a genuinely cold cache: all three
+fetching examples came back with identical verdicts and identical finding IDs
+on fresh data. If one of those moves, it is a real regression and not drift.
 
 ## Testing conventions
 

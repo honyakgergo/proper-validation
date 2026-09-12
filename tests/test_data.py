@@ -7,6 +7,8 @@ the network, and the test suite must not either.
 from __future__ import annotations
 
 import io
+import sys
+import types
 import zipfile
 
 import numpy as np
@@ -15,6 +17,7 @@ import pytest
 
 from qv.data.loaders import (
     CANONICAL_COLUMNS,
+    _FETCH_BACKOFF_SECONDS,
     CachedFrame,
     _parse_french_zip,
     cache_dir,
@@ -41,6 +44,77 @@ def price_frame():
         },
         index=dates,
     )
+
+
+class TestFetchRetry:
+    """A throttled fetch and a dead ticker look identical, so both are covered.
+
+    Yahoo answers a burst of requests with an empty frame, which yfinance
+    reports as "possibly delisted". Populating a cold cache *is* a burst - the
+    worked examples walk universes in a loop - so without a retry the
+    documented first run is the one that fails. These tests are non-network:
+    a fake `yfinance` stands in, and the waits are patched away.
+    """
+
+    @staticmethod
+    def _install_fake_yfinance(monkeypatch, tmp_path, responses):
+        """Serve `responses` in order from a fake `yfinance.download`."""
+        calls = []
+
+        def download(ticker, **kwargs):
+            calls.append(ticker)
+            return responses[min(len(calls) - 1, len(responses) - 1)]
+
+        module = types.SimpleNamespace(download=download)
+        monkeypatch.setitem(sys.modules, "yfinance", module)
+        monkeypatch.setattr("qv.data.loaders.cache_dir", lambda: tmp_path)
+        monkeypatch.setattr("qv.data.loaders.time.sleep", lambda _seconds: None)
+        return calls
+
+    def test_a_throttled_fetch_is_retried_until_it_succeeds(
+        self, monkeypatch, tmp_path, price_frame
+    ):
+        good = price_frame.rename(columns=str.title)
+        calls = self._install_fake_yfinance(
+            monkeypatch, tmp_path, [pd.DataFrame(), pd.DataFrame(), good]
+        )
+
+        cached = load_prices("XLV", "2005-01-01", "2024-12-31")
+
+        assert len(calls) == 3, "should have retried past the two empty answers"
+        assert not cached.from_cache
+        assert list(cached.frame.columns) == list(CANONICAL_COLUMNS)
+
+    def test_a_ticker_that_never_answers_still_fails(self, monkeypatch, tmp_path):
+        """The negative control. A retry that never gives up is a hung run, and
+        a wrong ticker must still be reported as a problem rather than waited on
+        forever."""
+        calls = self._install_fake_yfinance(monkeypatch, tmp_path, [pd.DataFrame()])
+
+        with pytest.raises(ValueError, match="no data returned"):
+            load_prices("NOTATICKER_XYZ", "2005-01-01", "2024-12-31")
+
+        assert len(calls) == len(_FETCH_BACKOFF_SECONDS) + 1
+
+    def test_the_failure_names_both_causes_it_cannot_tell_apart(
+        self, monkeypatch, tmp_path
+    ):
+        """The vendor reports throttling and a delisting identically, so the
+        error must not assert either one."""
+        self._install_fake_yfinance(monkeypatch, tmp_path, [pd.DataFrame()])
+
+        with pytest.raises(ValueError) as excinfo:
+            load_prices("NOTATICKER_XYZ", "2005-01-01", "2024-12-31")
+
+        message = str(excinfo.value)
+        assert "delisted" in message
+        assert "refusing the request" in message
+        assert "resumes" in message, "a partial cold cache is kept, and that is worth saying"
+
+    def test_the_backoff_is_bounded(self):
+        """Long enough to outlast throttling, short enough not to hang a run."""
+        assert len(_FETCH_BACKOFF_SECONDS) == 5
+        assert 120 <= sum(_FETCH_BACKOFF_SECONDS) <= 600
 
 
 class TestCacheAndSchema:

@@ -140,16 +140,15 @@
       "has_edge": false,
       "description": "constant 1.6x long the index, no timing at all",
       "replications": 25,
-      "flag_rate": 0.88,
+      "flag_rate": 1.0,
       "flag_rate_ci": [
-        0.7004380781662651,
-        0.9583325864293191
+        0.8668035060468213,
+        1.0
       ],
-      "correct_rate": 0.88,
+      "correct_rate": 1.0,
       "verdicts": {
         "falsified": 20,
-        "not_falsified": 3,
-        "weakened": 2
+        "weakened": 5
       },
       "expected_findings": [
         "ATTR-LEVERED-BETA"
@@ -157,7 +156,7 @@
       "expected_hits": {
         "ATTR-LEVERED-BETA": 20
       },
-      "mean_findings": 1.88
+      "mean_findings": 2.88
     },
     {
       "label": "lottery_ticket",
